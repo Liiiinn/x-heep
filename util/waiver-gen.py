@@ -11,6 +11,7 @@ def get_verilator_major_version():
     """
     Runs 'verilator --version' and parses the output to find the major version number.
     Returns the major version as an integer or None if it fails.
+    Supports both old format (rev vX.X) and new format (Verilator X.X).
     """
     try:
         # Extract the Verilator major version number
@@ -18,13 +19,20 @@ def get_verilator_major_version():
             ["verilator", "--version"], capture_output=True, text=True, check=True
         )
         output = result.stdout
-        match = re.search(r"rev v(\d+)\.\d+", output)
+        
+        # Try new format first (Verilator 5.X)
+        match = re.search(r"Verilator\s+(\d+)\.\d+", output)
+        
+        # Fall back to old format (rev vX.X)
+        if not match:
+            match = re.search(r"rev v(\d+)\.\d+", output)
 
         if not match:
             print(
                 "Error: Could not parse Verilator version from the output.",
                 file=sys.stderr,
             )
+            print(f"Debug: Verilator output was: {output}", file=sys.stderr)
             return None
 
         major_version = int(match.group(1))

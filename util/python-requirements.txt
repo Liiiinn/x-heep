@@ -1,7 +1,7 @@
 gitpython==3.1.25
 hjson==3.0.2
 pyyaml==6.0.2
-yamlfmt==1.1.0
+yamlfmt
 mako==1.1.6
 jsonref==0.2
 black==24.8.0
