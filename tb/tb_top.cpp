@@ -19,7 +19,9 @@ void runCycles(unsigned int ncycles, Vtestharness *dut, VerilatedFstC *m_trace){
     sim_time += CLK_PERIOD_ps/2;
     dut->clk_i ^= 1;
     dut->eval();
-    m_trace->dump(sim_time);
+    if (m_trace) {
+      m_trace->dump(sim_time);
+    }
   }
 }
 
@@ -30,6 +32,7 @@ int main (int argc, char * argv[])
   vluint64_t max_sim_time;
   unsigned int boot_sel, exit_val;
   bool use_openocd;
+  bool enable_waves;
   bool run_all = false;
 
   Verilated::commandArgs(argc, argv);
@@ -37,16 +40,20 @@ int main (int argc, char * argv[])
   // Instantiate the model
   Vtestharness *dut = new Vtestharness;
 
-  // Open VCD
-  Verilated::traceEverOn (true);
-  VerilatedFstC *m_trace = new VerilatedFstC;
-  dut->trace (m_trace, 99);
-  m_trace->open ("waveform.fst");
+  VerilatedFstC *m_trace = nullptr;
 
   XHEEP_CmdLineOptions* cmd_lines_options = new XHEEP_CmdLineOptions(argc,argv);
 
   use_openocd = cmd_lines_options->get_use_openocd();
+  enable_waves = cmd_lines_options->get_enable_waves();
   firmware = cmd_lines_options->get_firmware();
+
+  if (enable_waves) {
+    Verilated::traceEverOn(true);
+    m_trace = new VerilatedFstC;
+    dut->trace(m_trace, 99);
+    m_trace->open("waveform.fst");
+  }
 
   if(firmware.empty() && use_openocd==false){
       std::cout<<"You must specify the firmware if you are not using OpenOCD"<<std::endl;
@@ -73,7 +80,9 @@ int main (int argc, char * argv[])
   dut->execute_from_flash_i = 0;
 
   dut->eval();
-  m_trace->dump(sim_time);
+  if (m_trace) {
+    m_trace->dump(sim_time);
+  }
 
   dut->rst_ni               = 1;
   dut->boot_select_i        = boot_sel;
@@ -129,7 +138,10 @@ int main (int argc, char * argv[])
     exit_val = 2; // exit 2 to indicate successful run but premature termination
   }
 
-  m_trace->close();
+  if (m_trace) {
+    m_trace->close();
+    delete m_trace;
+  }
   delete dut;
   delete cmd_lines_options;
 

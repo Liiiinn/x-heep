@@ -192,13 +192,14 @@ int sc_main (int argc, char * argv[])
   unsigned long long max_sim_time;
   unsigned int boot_sel, exit_val;
   bool use_openocd;
+  bool enable_waves;
   bool run_all = false;
   Verilated::commandArgs(argc, argv);
-  Verilated::traceEverOn(true);
 
   XHEEP_CmdLineOptions* cmd_lines_options = new XHEEP_CmdLineOptions(argc,argv);
 
   use_openocd = cmd_lines_options->get_use_openocd();
+  enable_waves = cmd_lines_options->get_enable_waves();
   firmware = cmd_lines_options->get_firmware();
 
   if(firmware.empty() && use_openocd==false) {
@@ -315,9 +316,12 @@ int sc_main (int argc, char * argv[])
 
 
   VerilatedFstSc* tfp = nullptr;
-  tfp = new VerilatedFstSc;
-  dut.trace(tfp, 99);  // Trace 99 levels of hierarchy
-  tfp->open("waveform.fst");
+  if (enable_waves) {
+    Verilated::traceEverOn(true);
+    tfp = new VerilatedFstSc;
+    dut.trace(tfp, 99);  // Trace 99 levels of hierarchy
+    tfp->open("waveform.fst");
+  }
 
   // Simulate until $finish
   while (!Verilated::gotFinish() && exit_valid !=1 ) {

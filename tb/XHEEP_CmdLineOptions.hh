@@ -14,6 +14,7 @@ class XHEEP_CmdLineOptions // declare Calculator class
 
     std::string getCmdOption(int argc, char* argv[], const std::string& option); // get options from cmd lines
     bool get_use_openocd();
+    bool get_enable_waves();
     std::string get_firmware();
     unsigned long long get_max_sim_time(bool& run_all);
     unsigned int get_boot_sel();

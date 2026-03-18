@@ -41,6 +41,26 @@ bool XHEEP_CmdLineOptions::get_use_openocd()
   return use_openocd;
 }
 
+bool XHEEP_CmdLineOptions::get_enable_waves()
+{
+  std::string arg_waves = this->getCmdOption(this->argc, this->argv, "+waves=");
+  bool enable_waves = false;
+
+  if (arg_waves.empty() || arg_waves == "0" || arg_waves == "off" || arg_waves == "false") {
+    std::cout << "[TESTBENCH]: Waveform dump disabled" << std::endl;
+    enable_waves = false;
+  } else if (arg_waves == "1" || arg_waves == "on" || arg_waves == "true") {
+    std::cout << "[TESTBENCH]: Waveform dump enabled" << std::endl;
+    enable_waves = true;
+  } else {
+    std::cout << "[TESTBENCH]: ERROR: Unsupported +waves value '" << arg_waves
+              << "' (use 0/1, off/on, false/true)" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  return enable_waves;
+}
+
 
 std::string XHEEP_CmdLineOptions::get_firmware()
 {

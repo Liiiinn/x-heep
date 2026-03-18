@@ -388,15 +388,17 @@ targets:
         verilator_options:
           - '--sv'
           - '--cc'
+          # Keep minimal FST trace support required by tb_top.cpp.
+          # Heavy options (trace-structs/params/max-array) stay disabled for speed.
           - '--trace'
           - '--trace-fst'
-          - '--trace-structs'
-          - '--trace-params'
-          - '--trace-max-array 1024'
+          - '--threads 8'
+          - '--threads-dpi all'
+          - '--threads-max-mtasks 4096'
           - '--x-assign unique'
           - '--x-initial unique'
           - '--exe tb_top.cpp'
-          - '-CFLAGS "-Wall -fpermissive"'
+          - '-CFLAGS "-O3 -DNDEBUG -Wall -fpermissive"'
           - '-LDFLAGS "-pthread -lutil -lelf"'
           - "-Wall"
 
@@ -425,15 +427,17 @@ targets:
         mode: sc
         verilator_options:
           - '--sc'
+          # Keep minimal FST trace support required by tb_sc_top.cpp.
+          # Heavy options (trace-structs/params/max-array) stay disabled for speed.
           - '--trace'
           - '--trace-fst'
-          - '--trace-structs'
-          - '--trace-params'
-          - '--trace-max-array 1024'
+          - '--threads 8'
+          - '--threads-dpi all'
+          - '--threads-max-mtasks 4096'
           - '--x-assign unique'
           - '--x-initial unique'
           - '--exe tb_sc_top.cpp'
-          - '-CFLAGS "-Wall -fpermissive"'
+          - '-CFLAGS "-O3 -DNDEBUG -Wall -fpermissive"'
           - '-LDFLAGS "-pthread -lutil -lelf"'
           - "-Wall"
 
