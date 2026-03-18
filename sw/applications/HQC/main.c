@@ -10,6 +10,7 @@
 #include "csr_registers.h"
 #include "api.h"
 #include "parameters.h"
+#include "fips202.h"
 
 // Profiling stage selection (set with -DHQC_PROFILE_STAGE=<value>).
 // 0: all stages (default), 1: keygen only, 2: encaps only, 3: decaps only.
@@ -47,6 +48,12 @@ typedef struct {
     uint32_t keygen_cycles;
     uint32_t encaps_cycles;
     uint32_t decaps_cycles;
+    uint32_t keygen_keccak_cycles;
+    uint32_t encaps_keccak_cycles;
+    uint32_t decaps_keccak_cycles;
+    uint32_t keygen_keccak_calls;
+    uint32_t encaps_keccak_calls;
+    uint32_t decaps_keccak_calls;
 } perf_stats_t;
 
 // Keep large KEM buffers in .bss instead of stack.
@@ -91,6 +98,7 @@ int main(void) {
         // STEP 2: KeyGen profiling
         printf("[.] Starting KeyGen...\n");
         fflush(stdout);
+        hqc_keccak_profile_reset();
         start = read_cycle64();
         rc = PQCLEAN_HQC128_CLEAN_crypto_kem_keypair(pk, sk);
         end = read_cycle64();
@@ -99,7 +107,12 @@ int main(void) {
             return 1;
         }
         stats.keygen_cycles = (uint32_t)(end - start);
+         stats.keygen_keccak_cycles = (uint32_t)hqc_keccak_profile_get_cycles();
+         stats.keygen_keccak_calls = hqc_keccak_profile_get_calls();
         printf("[*] KeyGen        : %lu cycles\n", (unsigned long)stats.keygen_cycles);
+         printf("[*] KeyGen Keccak : %lu cycles (%lu perms)\n",
+             (unsigned long)stats.keygen_keccak_cycles,
+             (unsigned long)stats.keygen_keccak_calls);
         fflush(stdout);
     }
 
@@ -116,6 +129,7 @@ int main(void) {
         // STEP 3: Encapsulation profiling
         printf("[.] Starting Encapsulation...\n");
         fflush(stdout);
+        hqc_keccak_profile_reset();
         start = read_cycle64();
         rc = PQCLEAN_HQC128_CLEAN_crypto_kem_enc(ct, ss_encaps, pk);
         end = read_cycle64();
@@ -124,7 +138,12 @@ int main(void) {
             return 1;
         }
         stats.encaps_cycles = (uint32_t)(end - start);
+         stats.encaps_keccak_cycles = (uint32_t)hqc_keccak_profile_get_cycles();
+         stats.encaps_keccak_calls = hqc_keccak_profile_get_calls();
         printf("[*] Encapsulation : %lu cycles\n", (unsigned long)stats.encaps_cycles);
+         printf("[*] Encap Keccak  : %lu cycles (%lu perms)\n",
+             (unsigned long)stats.encaps_keccak_cycles,
+             (unsigned long)stats.encaps_keccak_calls);
         fflush(stdout);
     }
 
@@ -141,6 +160,7 @@ int main(void) {
         // STEP 4: Decapsulation profiling
         printf("[.] Starting Decapsulation...\n");
         fflush(stdout);
+        hqc_keccak_profile_reset();
         start = read_cycle64();
         rc = PQCLEAN_HQC128_CLEAN_crypto_kem_dec(ss_decaps, ct, sk);
         end = read_cycle64();
@@ -149,7 +169,12 @@ int main(void) {
             return 1;
         }
         stats.decaps_cycles = (uint32_t)(end - start);
+         stats.decaps_keccak_cycles = (uint32_t)hqc_keccak_profile_get_cycles();
+         stats.decaps_keccak_calls = hqc_keccak_profile_get_calls();
         printf("[*] Decapsulation : %lu cycles\n", (unsigned long)stats.decaps_cycles);
+         printf("[*] Decap Keccak  : %lu cycles (%lu perms)\n",
+             (unsigned long)stats.decaps_keccak_cycles,
+             (unsigned long)stats.decaps_keccak_calls);
         fflush(stdout);
     }
 
@@ -166,7 +191,11 @@ int main(void) {
     // STEP 6: Performance summary
     printf("\n--- Performance Summary ---\n");
     uint32_t total_cycles = stats.keygen_cycles + stats.encaps_cycles + stats.decaps_cycles;
+    uint32_t total_keccak_cycles = stats.keygen_keccak_cycles + stats.encaps_keccak_cycles + stats.decaps_keccak_cycles;
+    uint32_t total_keccak_calls = stats.keygen_keccak_calls + stats.encaps_keccak_calls + stats.decaps_keccak_calls;
     printf("Total KEM Operations Cycles: %lu\n", (unsigned long)total_cycles);
+    printf("Total Keccak Cycles: %lu\n", (unsigned long)total_keccak_cycles);
+    printf("Total Keccak Permutations: %lu\n", (unsigned long)total_keccak_calls);
 
     printf("\n=== Profiling Complete ===\n\n");
 

@@ -163,4 +163,9 @@ void sha3_512_inc_ctx_release(sha3_512incctx *state);
 /* One-stop SHA3-512 shop */
 void sha3_512(uint8_t *output, const uint8_t *input, size_t inlen);
 
+/* Keccak profiling helpers (cycle and permutation-call counters). */
+void hqc_keccak_profile_reset(void);
+uint64_t hqc_keccak_profile_get_cycles(void);
+uint32_t hqc_keccak_profile_get_calls(void);
+
 #endif

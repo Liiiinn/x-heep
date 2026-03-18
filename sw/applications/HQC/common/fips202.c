@@ -15,6 +15,19 @@
 #define NROUNDS 24
 #define ROL(a, offset) (((a) << (offset)) ^ ((a) >> (64 - (offset))))
 
+static uint64_t g_keccak_cycles = 0;
+static uint32_t g_keccak_calls = 0;
+
+static inline uint64_t hqc_read_cycle64(void) {
+    uint32_t hi0, lo, hi1;
+    do {
+        __asm__ volatile ("csrr %0, mcycleh" : "=r" (hi0));
+        __asm__ volatile ("csrr %0, mcycle" : "=r" (lo));
+        __asm__ volatile ("csrr %0, mcycleh" : "=r" (hi1));
+    } while (hi0 != hi1);
+    return ((uint64_t)hi1 << 32) | lo;
+}
+
 /*************************************************
  * Name:        load64
  *
@@ -71,6 +84,7 @@ static const uint64_t KeccakF_RoundConstants[NROUNDS] = {
  * Arguments:   - uint64_t *state: pointer to input/output Keccak state
  **************************************************/
 static void KeccakF1600_StatePermute(uint64_t *state) {
+    uint64_t keccak_start_cycles = hqc_read_cycle64();
     int round;
 
     uint64_t Aba, Abe, Abi, Abo, Abu;
@@ -331,6 +345,22 @@ static void KeccakF1600_StatePermute(uint64_t *state) {
     state[22] = Asi;
     state[23] = Aso;
     state[24] = Asu;
+
+    g_keccak_cycles += (hqc_read_cycle64() - keccak_start_cycles);
+    g_keccak_calls++;
+}
+
+void hqc_keccak_profile_reset(void) {
+    g_keccak_cycles = 0;
+    g_keccak_calls = 0;
+}
+
+uint64_t hqc_keccak_profile_get_cycles(void) {
+    return g_keccak_cycles;
+}
+
+uint32_t hqc_keccak_profile_get_calls(void) {
+    return g_keccak_calls;
 }
 
 /*************************************************
