@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include "csr.h"
+#include "csr_registers.h"
 #include "api.h"
 #include "parameters.h"
 
@@ -22,12 +24,23 @@
 
 
 /**
- * @brief Read the mcycle counter
-*/
-static inline uint32_t read_cycle(void) {
-    uint32_t cycle;
-    __asm__ volatile ("csrr %0, mcycle" : "=r" (cycle));
-    return cycle;
+ * @brief Enable cycle counter (clear mcountinhibit.CY)
+ */
+static inline void enable_cycle_counter(void) {
+    CSR_CLEAR_BITS(CSR_REG_MCOUNTINHIBIT, 0x1);
+}
+
+/**
+ * @brief Read mcycle as 64-bit value with rollover-safe high/low sequence
+ */
+static inline uint64_t read_cycle64(void) {
+    uint32_t hi0, lo, hi1;
+    do {
+        CSR_READ(CSR_REG_MCYCLEH, &hi0);
+        CSR_READ(CSR_REG_MCYCLE, &lo);
+        CSR_READ(CSR_REG_MCYCLEH, &hi1);
+    } while (hi0 != hi1);
+    return ((uint64_t)hi1 << 32) | lo;
 }
 
 typedef struct {
@@ -69,21 +82,23 @@ int main(void) {
 
     perf_stats_t stats = {0};
 
-    uint32_t start, end;
+    uint64_t start, end;
     int rc;
+
+    enable_cycle_counter();
 
     if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_KEYGEN_ONLY) {
         // STEP 2: KeyGen profiling
         printf("[.] Starting KeyGen...\n");
         fflush(stdout);
-        start = read_cycle();
+        start = read_cycle64();
         rc = PQCLEAN_HQC128_CLEAN_crypto_kem_keypair(pk, sk);
-        end = read_cycle();
+        end = read_cycle64();
         if (rc != 0) {
             printf("[!] KeyGen failed, rc=%d\n", rc);
             return 1;
         }
-        stats.keygen_cycles = end - start;
+        stats.keygen_cycles = (uint32_t)(end - start);
         printf("[*] KeyGen        : %lu cycles\n", (unsigned long)stats.keygen_cycles);
         fflush(stdout);
     }
@@ -101,14 +116,14 @@ int main(void) {
         // STEP 3: Encapsulation profiling
         printf("[.] Starting Encapsulation...\n");
         fflush(stdout);
-        start = read_cycle();
+        start = read_cycle64();
         rc = PQCLEAN_HQC128_CLEAN_crypto_kem_enc(ct, ss_encaps, pk);
-        end = read_cycle();
+        end = read_cycle64();
         if (rc != 0) {
             printf("[!] Encapsulation failed, rc=%d\n", rc);
             return 1;
         }
-        stats.encaps_cycles = end - start;
+        stats.encaps_cycles = (uint32_t)(end - start);
         printf("[*] Encapsulation : %lu cycles\n", (unsigned long)stats.encaps_cycles);
         fflush(stdout);
     }
@@ -126,14 +141,14 @@ int main(void) {
         // STEP 4: Decapsulation profiling
         printf("[.] Starting Decapsulation...\n");
         fflush(stdout);
-        start = read_cycle();
+        start = read_cycle64();
         rc = PQCLEAN_HQC128_CLEAN_crypto_kem_dec(ss_decaps, ct, sk);
-        end = read_cycle();
+        end = read_cycle64();
         if (rc != 0) {
             printf("[!] Decapsulation failed, rc=%d\n", rc);
             return 1;
         }
-        stats.decaps_cycles = end - start;
+        stats.decaps_cycles = (uint32_t)(end - start);
         printf("[*] Decapsulation : %lu cycles\n", (unsigned long)stats.decaps_cycles);
         fflush(stdout);
     }

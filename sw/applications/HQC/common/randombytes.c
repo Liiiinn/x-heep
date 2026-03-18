@@ -29,6 +29,16 @@ THE SOFTWARE.
 #include <stdint.h>
 #include <stddef.h>
 
+// Deterministic mode for repeatable benchmarking.
+// 1: always use HQC_RANDOM_SEED_VALUE, 0: use mcycle-based seeding.
+#ifndef HQC_RANDOM_FIXED_SEED
+#define HQC_RANDOM_FIXED_SEED 1
+#endif
+
+#ifndef HQC_RANDOM_SEED_VALUE
+#define HQC_RANDOM_SEED_VALUE 0xDEADBEEF
+#endif
+
 /**
  * @brief Simple LFSR-based PRNG for RISC-V embedded systems
  * Uses Galois configuration: polynomial x^32 + x^31 + x^29 + x^25 + 1
@@ -61,8 +71,13 @@ static inline uint32_t lfsr_next(void) {
  * Call once at the start of your application for better randomness
  */
 int randombytes_seedrng(void) {
-    uint32_t seed = read_mcycle();
-    if (seed == 0) seed = 0xDEADBEEF;
+    uint32_t seed;
+#if HQC_RANDOM_FIXED_SEED
+    seed = (uint32_t)HQC_RANDOM_SEED_VALUE;
+#else
+    seed = read_mcycle();
+    if (seed == 0) seed = (uint32_t)HQC_RANDOM_SEED_VALUE;
+#endif
     lfsr_state = seed;
     return 0;
 }
@@ -85,10 +100,14 @@ int randombytes_seedrng(void) {
 int PQCLEAN_randombytes(uint8_t *output, size_t n) {
     static int seeded = 0;
     
-    // Auto-seed on first call using mcycle
+    // Auto-seed on first call.
     if (!seeded) {
+#if HQC_RANDOM_FIXED_SEED
+        lfsr_state = (uint32_t)HQC_RANDOM_SEED_VALUE;
+#else
         lfsr_state = read_mcycle();
-        if (lfsr_state == 0) lfsr_state = 0xDEADBEEF;
+        if (lfsr_state == 0) lfsr_state = (uint32_t)HQC_RANDOM_SEED_VALUE;
+#endif
         seeded = 1;
     }
     
