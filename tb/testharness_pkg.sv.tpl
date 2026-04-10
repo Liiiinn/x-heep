@@ -10,10 +10,10 @@ package testharness_pkg;
   import core_v_mini_mcu_pkg::*;
 
   % if user_peripheral_domain.contains_peripheral('serial_link'):
-    localparam EXT_XBAR_NMASTER = 8;
+    localparam EXT_XBAR_NMASTER = 9;
     localparam EXT_XBAR_NSLAVE = 3;
   % else: 
-    localparam EXT_XBAR_NMASTER = 8;
+    localparam EXT_XBAR_NMASTER = 9;
     localparam EXT_XBAR_NSLAVE = 2;
   %endif
 
@@ -26,6 +26,7 @@ package testharness_pkg;
   localparam logic [31:0] EXT_MASTER5_IDX = 5;
   localparam logic [31:0] EXT_MASTER6_IDX = 6;
   localparam logic [31:0] EXT_MASTER7_IDX = 7;
+  localparam logic [31:0] EXT_MASTER8_IDX = 8;
 
   //slave mmap and idx of slow memory interleaved
   localparam logic [31:0] SLOW_MEMORY_START_ADDRESS = core_v_mini_mcu_pkg::EXT_SLAVE_START_ADDRESS;
@@ -61,9 +62,9 @@ package testharness_pkg;
 
   //slave encoder
   % if user_peripheral_domain.contains_peripheral('serial_link'):
-    localparam EXT_NPERIPHERALS = 7;
+    localparam EXT_NPERIPHERALS = 8;
   %else: 
-    localparam EXT_NPERIPHERALS = 6;  
+    localparam EXT_NPERIPHERALS = 7;  
   %endif
   
   // Memcopy controller (external peripheral example)
@@ -102,12 +103,18 @@ package testharness_pkg;
   localparam logic [31:0] DLC_END_ADDRESS = DLC_START_ADDRESS + DLC_SIZE;
   localparam logic [31:0] DLC_IDX = 32'd5;
 
+  // External Keccak DMA Peripheral
+  localparam logic [31:0] KECCAK_DMA_START_ADDRESS = core_v_mini_mcu_pkg::EXT_PERIPHERAL_START_ADDRESS + 32'h06000;
+  localparam logic [31:0] KECCAK_DMA_SIZE = 32'h100;
+  localparam logic [31:0] KECCAK_DMA_END_ADDRESS = KECCAK_DMA_START_ADDRESS + KECCAK_DMA_SIZE;
+  localparam logic [31:0] KECCAK_DMA_IDX = 32'd6;
+
   % if user_peripheral_domain.contains_peripheral('serial_link'):
     // External SERIAL LINK Peripheral
-    localparam logic [31:0] SL_REG_START_ADDRESS= core_v_mini_mcu_pkg::EXT_PERIPHERAL_START_ADDRESS+ 32'h06000;
+    localparam logic [31:0] SL_REG_START_ADDRESS= core_v_mini_mcu_pkg::EXT_PERIPHERAL_START_ADDRESS+ 32'h07000;
     localparam logic [31:0] SL_REG_SIZE = 32'h100;
     localparam logic [31:0] SL_REG_END_ADDRESS = SL_REG_START_ADDRESS + SL_REG_SIZE;
-    localparam logic [31:0] SL_REG_IDX = 32'd6;
+    localparam logic [31:0] SL_REG_IDX = 32'd7;
   %endif
 
   localparam addr_map_rule_t [EXT_NPERIPHERALS-1:0] EXT_PERIPHERALS_ADDR_RULES = '{
@@ -128,7 +135,8 @@ package testharness_pkg;
           start_addr: IM2COL_SPC_START_ADDRESS,
           end_addr: IM2COL_SPC_END_ADDRESS
       },
-      '{idx: DLC_IDX, start_addr: DLC_START_ADDRESS, end_addr: DLC_END_ADDRESS}
+        '{idx: DLC_IDX, start_addr: DLC_START_ADDRESS, end_addr: DLC_END_ADDRESS},
+        '{idx: KECCAK_DMA_IDX, start_addr: KECCAK_DMA_START_ADDRESS, end_addr: KECCAK_DMA_END_ADDRESS}
       % if user_peripheral_domain.contains_peripheral('serial_link'):
       ,
       '{idx: SL_REG_IDX, start_addr: SL_REG_START_ADDRESS, end_addr: SL_REG_END_ADDRESS}

@@ -124,6 +124,7 @@ module testharness #(
 
   // Im2col SPC interrupt signal
   logic im2col_spc_done_int_o;
+  logic keccak_intr_o;
 
   // dLC done signal
   logic dlc_done;
@@ -221,6 +222,7 @@ module testharness #(
     intr_vector_ext[0] = memcopy_intr;
     intr_vector_ext[1] = iffifo_int_o;
     intr_vector_ext[2] = im2col_spc_done_int_o;
+    intr_vector_ext[3] = keccak_intr_o;
   end
 
   //log parameters
@@ -593,6 +595,21 @@ module testharness #(
           .acc_write_ch0_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER3_IDX])
       );
 
+        keccak_dma_wrapper #(
+          .reg_req_t (reg_pkg::reg_req_t),
+          .reg_rsp_t (reg_pkg::reg_rsp_t),
+          .obi_req_t (obi_pkg::obi_req_t),
+          .obi_resp_t(obi_pkg::obi_resp_t)
+        ) keccak_dma_wrapper_i (
+          .clk_i,
+          .rst_ni,
+          .reg_req_i(ext_periph_slv_req[testharness_pkg::KECCAK_DMA_IDX]),
+          .reg_rsp_o(ext_periph_slv_rsp[testharness_pkg::KECCAK_DMA_IDX]),
+          .keccak_req_o(ext_master_req[testharness_pkg::EXT_MASTER4_IDX]),
+          .keccak_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER4_IDX]),
+          .keccak_intr_o(keccak_intr_o)
+        );
+
       im2col_spc im2col_spc_i (
           .clk_i,
           .rst_ni,
@@ -744,22 +761,22 @@ module testharness #(
             .xif_mem_result_if      (ext_if),
             .xif_result_if          (ext_if),
             // OBI signals 
-            .quadrilatero_ch0_req_o (ext_master_req[testharness_pkg::EXT_MASTER4_IDX]),
-            .quadrilatero_ch0_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER4_IDX]),
-            .quadrilatero_ch1_req_o (ext_master_req[testharness_pkg::EXT_MASTER5_IDX]),
-            .quadrilatero_ch1_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER5_IDX]),
-            .quadrilatero_ch2_req_o (ext_master_req[testharness_pkg::EXT_MASTER6_IDX]),
-            .quadrilatero_ch2_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER6_IDX]),
-            .quadrilatero_ch3_req_o (ext_master_req[testharness_pkg::EXT_MASTER7_IDX]),
-            .quadrilatero_ch3_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER7_IDX])
+            .quadrilatero_ch0_req_o (ext_master_req[testharness_pkg::EXT_MASTER5_IDX]),
+            .quadrilatero_ch0_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER5_IDX]),
+            .quadrilatero_ch1_req_o (ext_master_req[testharness_pkg::EXT_MASTER6_IDX]),
+            .quadrilatero_ch1_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER6_IDX]),
+            .quadrilatero_ch2_req_o (ext_master_req[testharness_pkg::EXT_MASTER7_IDX]),
+            .quadrilatero_ch2_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER7_IDX]),
+            .quadrilatero_ch3_req_o (ext_master_req[testharness_pkg::EXT_MASTER8_IDX]),
+            .quadrilatero_ch3_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER8_IDX])
         );
       end else begin : gen_no_quadrilatero_wrapper
 
         // Tie-off unused Quadrilatero master ports
-        assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX] = '0;
         assign ext_master_req[testharness_pkg::EXT_MASTER5_IDX] = '0;
         assign ext_master_req[testharness_pkg::EXT_MASTER6_IDX] = '0;
         assign ext_master_req[testharness_pkg::EXT_MASTER7_IDX] = '0;
+        assign ext_master_req[testharness_pkg::EXT_MASTER8_IDX] = '0;
 
       end
 
@@ -803,11 +820,17 @@ module testharness #(
       assign ext_master_req[testharness_pkg::EXT_MASTER0_IDX].be = '0;
       assign ext_master_req[testharness_pkg::EXT_MASTER0_IDX].addr = '0;
       assign ext_master_req[testharness_pkg::EXT_MASTER0_IDX].wdata = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX].req = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX].we = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX].be = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX].addr = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX].wdata = '0;
 
       assign memcopy_intr = '0;
       assign iffifo_int_o = '0;
       assign periph_slave_rsp = '0;
       assign im2col_spc_done_int_o = '0;
+      assign keccak_intr_o = '0;
 
     end
   endgenerate
