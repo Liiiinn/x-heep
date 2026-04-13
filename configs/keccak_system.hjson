@@ -112,11 +112,6 @@
     peripherals: {
         address: 0x30000000
         length:  0x00100000
-        keccak: {
-            offset:  0x000C0000
-            length:  0x00010000
-            is_included: "yes"
-        }
         rv_plic: {
             offset:  0x00000000
             length:  0x00010000
@@ -189,13 +184,6 @@
         address: 0xF0000000
         length:  0x01000000
     }
-
-    external_masters: [
-        {
-            name: "keccak_dma"
-            width: 32
-        }
-    ]
 
     interrupts: {
         number: 64 // Do not change this number!
