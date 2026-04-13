@@ -124,7 +124,6 @@ module testharness #(
 
   // Im2col SPC interrupt signal
   logic im2col_spc_done_int_o;
-  logic keccak_intr_o;
 
   // dLC done signal
   logic dlc_done;
@@ -222,7 +221,6 @@ module testharness #(
     intr_vector_ext[0] = memcopy_intr;
     intr_vector_ext[1] = iffifo_int_o;
     intr_vector_ext[2] = im2col_spc_done_int_o;
-    intr_vector_ext[3] = keccak_intr_o;
   end
 
   //log parameters
@@ -595,20 +593,8 @@ module testharness #(
           .acc_write_ch0_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER3_IDX])
       );
 
-        keccak_dma_wrapper #(
-          .reg_req_t (reg_pkg::reg_req_t),
-          .reg_rsp_t (reg_pkg::reg_rsp_t),
-          .obi_req_t (obi_pkg::obi_req_t),
-          .obi_resp_t(obi_pkg::obi_resp_t)
-        ) keccak_dma_wrapper_i (
-          .clk_i,
-          .rst_ni,
-          .reg_req_i(ext_periph_slv_req[testharness_pkg::KECCAK_DMA_IDX]),
-          .reg_rsp_o(ext_periph_slv_rsp[testharness_pkg::KECCAK_DMA_IDX]),
-          .keccak_req_o(ext_master_req[testharness_pkg::EXT_MASTER4_IDX]),
-          .keccak_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER4_IDX]),
-          .keccak_intr_o(keccak_intr_o)
-        );
+      assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX] = '0;
+      assign ext_periph_slv_rsp[testharness_pkg::KECCAK_DMA_IDX] = '0;
 
       im2col_spc im2col_spc_i (
           .clk_i,
@@ -830,7 +816,6 @@ module testharness #(
       assign iffifo_int_o = '0;
       assign periph_slave_rsp = '0;
       assign im2col_spc_done_int_o = '0;
-      assign keccak_intr_o = '0;
 
     end
   endgenerate

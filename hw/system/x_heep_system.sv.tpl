@@ -124,6 +124,11 @@ module x_heep_system
   import core_v_mini_mcu_pkg::*;
 
   localparam EXT_HARTS = 0;
+  localparam int unsigned KECCAK_DMA_EXT_MASTER_IDX = 4;
+  localparam int unsigned KECCAK_DMA_INTR_IDX = 3;
+  localparam logic [31:0] KECCAK_DMA_START_ADDRESS = core_v_mini_mcu_pkg::EXT_PERIPHERAL_START_ADDRESS + 32'h06000;
+  localparam logic [31:0] KECCAK_DMA_END_ADDRESS = KECCAK_DMA_START_ADDRESS + 32'h100;
+  localparam bit KECCAK_DMA_HAS_MASTER_PORT = EXT_XBAR_NMASTER > KECCAK_DMA_EXT_MASTER_IDX;
 
   //do not touch these parameter
   localparam EXT_HARTS_RND = EXT_HARTS == 0 ? 1 : EXT_HARTS;
@@ -131,6 +136,18 @@ module x_heep_system
   logic [EXT_HARTS_RND-1:0] ext_debug_req;
   logic ext_cpu_subsystem_rst_n;
   logic ext_debug_reset_n;
+  logic [NEXT_INT_RND-1:0] intr_vector_ext;
+  logic keccak_intr;
+
+  reg_req_t ext_peripheral_slave_req;
+  reg_rsp_t ext_peripheral_slave_resp;
+  reg_req_t keccak_reg_req;
+  reg_rsp_t keccak_reg_rsp;
+
+  obi_req_t  [EXT_XBAR_NMASTER_RND-1:0] ext_xbar_master_req;
+  obi_resp_t [EXT_XBAR_NMASTER_RND-1:0] ext_xbar_master_resp;
+  obi_req_t keccak_dma_req;
+  obi_resp_t keccak_dma_resp;
 
   // PAD controller
   reg_req_t pad_req;
@@ -156,6 +173,67 @@ module x_heep_system
       logic ${pad.pins[0].rtl_name()}in_x_muxed, ${pad.pins[0].rtl_name()}out_x_muxed, ${pad.pins[0].rtl_name()}oe_x_muxed;
     % endif
   % endfor
+
+  always_comb begin
+    intr_vector_ext = intr_vector_ext_i;
+
+    for (int unsigned i = 0; i < NEXT_INT_RND; i++) begin
+      if ((i == KECCAK_DMA_INTR_IDX) && (i < core_v_mini_mcu_pkg::NEXT_INT)) begin
+        intr_vector_ext[i] = intr_vector_ext_i[i] | keccak_intr;
+      end
+    end
+  end
+
+  always_comb begin
+    ext_peripheral_slave_req_o = ext_peripheral_slave_req;
+    ext_peripheral_slave_resp = ext_peripheral_slave_resp_i;
+    keccak_reg_req = '0;
+
+    if (KECCAK_DMA_HAS_MASTER_PORT && ext_peripheral_slave_req.valid &&
+        (ext_peripheral_slave_req.addr >= KECCAK_DMA_START_ADDRESS) &&
+        (ext_peripheral_slave_req.addr < KECCAK_DMA_END_ADDRESS)) begin
+      ext_peripheral_slave_req_o = '0;
+      keccak_reg_req = ext_peripheral_slave_req;
+      ext_peripheral_slave_resp = keccak_reg_rsp;
+    end
+  end
+
+  always_comb begin
+    ext_xbar_master_req = ext_xbar_master_req_i;
+    keccak_dma_resp = '0;
+
+    for (int unsigned i = 0; i < EXT_XBAR_NMASTER_RND; i++) begin
+      if (KECCAK_DMA_HAS_MASTER_PORT && (i == KECCAK_DMA_EXT_MASTER_IDX)) begin
+        ext_xbar_master_req[i] = keccak_dma_req;
+        keccak_dma_resp = ext_xbar_master_resp[i];
+      end
+    end
+  end
+
+  assign ext_xbar_master_resp_o = ext_xbar_master_resp;
+
+  generate
+    if (KECCAK_DMA_HAS_MASTER_PORT) begin : gen_keccak_dma_wrapper
+      keccak_dma_wrapper #(
+          .reg_req_t(reg_pkg::reg_req_t),
+          .reg_rsp_t(reg_pkg::reg_rsp_t),
+          .obi_req_t(obi_pkg::obi_req_t),
+          .obi_resp_t(obi_pkg::obi_resp_t)
+      ) keccak_dma_wrapper_i (
+          .clk_i(clk_in_x),
+          .rst_ni(rst_ngen),
+          .reg_req_i(keccak_reg_req),
+          .reg_rsp_o(keccak_reg_rsp),
+          .keccak_req_o(keccak_dma_req),
+          .keccak_resp_i(keccak_dma_resp),
+          .keccak_intr_o(keccak_intr)
+      );
+    end else begin : gen_no_keccak_dma_wrapper
+      assign keccak_reg_rsp = '0;
+      assign keccak_dma_req = '0;
+      assign keccak_intr = 1'b0;
+    end
+  endgenerate
 
 
   core_v_mini_mcu #(
@@ -188,7 +266,7 @@ module x_heep_system
 
     .hart_id_i,
     .xheep_instance_id_i,
-    .intr_vector_ext_i,
+    .intr_vector_ext_i(intr_vector_ext),
     .intr_ext_peripheral_i,
     .xif_compressed_if,
     .xif_issue_if,
@@ -198,8 +276,8 @@ module x_heep_system
     .xif_result_if,
     .pad_req_o(pad_req),
     .pad_resp_i(pad_resp),
-    .ext_xbar_master_req_i,
-    .ext_xbar_master_resp_o,
+    .ext_xbar_master_req_i(ext_xbar_master_req),
+    .ext_xbar_master_resp_o(ext_xbar_master_resp),
     .ext_ao_peripheral_slave_req_i(ext_ao_peripheral_req_i),
     .ext_ao_peripheral_slave_resp_o(ext_ao_peripheral_resp_o),
     .ext_core_instr_req_o,
@@ -218,8 +296,8 @@ module x_heep_system
     .ext_dma_stop_i,
     .hw_fifo_req_o,
     .hw_fifo_resp_i,
-    .ext_peripheral_slave_req_o,
-    .ext_peripheral_slave_resp_i,
+    .ext_peripheral_slave_req_o(ext_peripheral_slave_req),
+    .ext_peripheral_slave_resp_i(ext_peripheral_slave_resp),
     .ext_debug_req_o(ext_debug_req),
     .ext_debug_reset_no(ext_debug_reset_n),
     .cpu_subsystem_powergate_switch_no,
@@ -343,6 +421,5 @@ analog_signal_pads = [ pad for pad in xheep.get_padring().pad_list if any(isinst
     .rst_no(rst_ngen),
     .init_no()
   );
-
 
 endmodule  // x_heep_system
