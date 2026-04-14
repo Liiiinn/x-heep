@@ -20,14 +20,14 @@ extern "C" {
 #define KECCAK_DMA_BLOCK_BYTES 200u
 
 typedef enum keccak_dma_result {
-  kKeccakDmaOk = 0,
-  kKeccakDmaTimeout = -1,
-  kKeccakDmaError = -2,
-  kKeccakDmaBadLen = -3,
+    kKeccakDmaOk = 0,
+    kKeccakDmaTimeout = -1,
+    kKeccakDmaError = -2,
+    kKeccakDmaBadLen = -3,
 } keccak_dma_result_t;
 
 typedef struct keccak_dma {
-  mmio_region_t base_addr;
+    mmio_region_t base_addr;
 } keccak_dma_t;
 
 void keccak_dma_init(keccak_dma_t *keccak, uintptr_t base_addr);
