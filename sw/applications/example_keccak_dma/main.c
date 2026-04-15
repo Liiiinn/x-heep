@@ -11,11 +11,33 @@
 #include "rv_plic.h"
 #include "keccak_dma.h"
 
+#ifndef KECCAK_RANDOM_VECTORS_QUICK
+#define KECCAK_RANDOM_VECTORS_QUICK 8u
+#endif
+
+#ifndef KECCAK_RANDOM_VECTORS_HEAVY
+#define KECCAK_RANDOM_VECTORS_HEAVY 128u
+#endif
+
+#ifndef KECCAK_TEST_HEAVY
+#define KECCAK_TEST_HEAVY 0
+#endif
+
+#if KECCAK_TEST_HEAVY
+#define KECCAK_RANDOM_VECTOR_COUNT KECCAK_RANDOM_VECTORS_HEAVY
+#define KECCAK_TEST_MODE_NAME "heavy"
+#else
+#define KECCAK_RANDOM_VECTOR_COUNT KECCAK_RANDOM_VECTORS_QUICK
+#define KECCAK_TEST_MODE_NAME "quick"
+#endif
+
 enum {
     kKeccakWordCount = 50,
     kKeccakTimeoutCycles = 1000000u,
     kInterruptEnableBit = (1u << 11),
-    kRandomVectorCount = 8u,
+    kRandomVectorCount = KECCAK_RANDOM_VECTOR_COUNT,
+    kKeccakRoundCount = 24,
+    kKeccakLaneCount = 25,
 };
 
 static const uint32_t kGoldenOutputWords[4] = {
@@ -29,8 +51,45 @@ static uint32_t g_input_words[kKeccakWordCount] __attribute__((aligned(4)));
 static uint32_t g_output_words[kKeccakWordCount] __attribute__((aligned(4)));
 static uint32_t g_output_words_repeat[kKeccakWordCount] __attribute__((aligned(4)));
 static uint32_t g_output_words_alt[kKeccakWordCount] __attribute__((aligned(4)));
+static uint32_t g_reference_words[kKeccakWordCount] __attribute__((aligned(4)));
 static volatile uint32_t g_keccak_irq_count;
 static volatile uint32_t g_keccak_irq_last_id;
+
+static const uint64_t kKeccakRoundConstants[kKeccakRoundCount] = {
+    0x0000000000000001ULL,
+    0x0000000000008082ULL,
+    0x800000000000808aULL,
+    0x8000000080008000ULL,
+    0x000000000000808bULL,
+    0x0000000080000001ULL,
+    0x8000000080008081ULL,
+    0x8000000000008009ULL,
+    0x000000000000008aULL,
+    0x0000000000000088ULL,
+    0x0000000080008009ULL,
+    0x000000008000000aULL,
+    0x000000008000808bULL,
+    0x800000000000008bULL,
+    0x8000000000008089ULL,
+    0x8000000000008003ULL,
+    0x8000000000008002ULL,
+    0x8000000000000080ULL,
+    0x000000000000800aULL,
+    0x800000008000000aULL,
+    0x8000000080008081ULL,
+    0x8000000000008080ULL,
+    0x0000000080000001ULL,
+    0x8000000080008008ULL,
+};
+
+// Matches rho wiring in RTL (implemented as right-rotates).
+static const uint8_t kKeccakRhoRightRot[5][5] = {
+    {0, 63, 2, 36, 37},
+    {28, 20, 58, 9, 44},
+    {61, 54, 21, 39, 25},
+    {23, 19, 49, 43, 56},
+    {46, 62, 3, 8, 50},
+};
 
 static void fill_pattern_a(uint32_t *buf) {
     for (uint32_t i = 0; i < kKeccakWordCount; ++i) {
@@ -65,6 +124,111 @@ static void copy_words(uint32_t *dst, const uint32_t *src) {
     for (uint32_t i = 0; i < kKeccakWordCount; ++i) {
         dst[i] = src[i];
     }
+}
+
+static inline uint64_t rotl64(uint64_t x, uint32_t n) {
+    if (n == 0u) {
+        return x;
+    }
+    return (x << n) | (x >> (64u - n));
+}
+
+static inline uint64_t rotr64(uint64_t x, uint32_t n) {
+    if (n == 0u) {
+        return x;
+    }
+    return (x >> n) | (x << (64u - n));
+}
+
+static void keccak_reference_f1600(const uint32_t *input_words,
+                                   uint32_t *output_words) {
+    uint64_t s[5][5];
+    uint64_t c[5];
+    uint64_t d[5];
+    uint64_t rho[5][5];
+    uint64_t pi[5][5];
+    uint64_t chi[5][5];
+
+    for (uint32_t lane = 0; lane < kKeccakLaneCount; ++lane) {
+        const uint32_t y = lane / 5u;
+        const uint32_t x = lane % 5u;
+        s[y][x] = ((uint64_t)input_words[2u * lane]) |
+                  ((uint64_t)input_words[2u * lane + 1u] << 32);
+    }
+
+    for (uint32_t round = 0; round < kKeccakRoundCount; ++round) {
+        for (uint32_t x = 0; x < 5u; ++x) {
+            c[x] = s[0][x] ^ s[1][x] ^ s[2][x] ^ s[3][x] ^ s[4][x];
+        }
+
+        for (uint32_t x = 0; x < 5u; ++x) {
+            d[x] = c[(x + 4u) % 5u] ^ rotl64(c[(x + 1u) % 5u], 1u);
+        }
+
+        for (uint32_t y = 0; y < 5u; ++y) {
+            for (uint32_t x = 0; x < 5u; ++x) {
+                s[y][x] ^= d[x];
+            }
+        }
+
+        for (uint32_t y = 0; y < 5u; ++y) {
+            for (uint32_t x = 0; x < 5u; ++x) {
+                rho[y][x] = rotr64(s[y][x], kKeccakRhoRightRot[y][x]);
+            }
+        }
+
+        for (uint32_t y = 0; y < 5u; ++y) {
+            for (uint32_t x = 0; x < 5u; ++x) {
+                pi[(2u * x + 3u * y) % 5u][y] = rho[y][x];
+            }
+        }
+
+        for (uint32_t y = 0; y < 5u; ++y) {
+            for (uint32_t x = 0; x < 5u; ++x) {
+                chi[y][x] =
+                    pi[y][x] ^ ((~pi[y][(x + 1u) % 5u]) & pi[y][(x + 2u) % 5u]);
+            }
+        }
+
+        for (uint32_t y = 0; y < 5u; ++y) {
+            for (uint32_t x = 0; x < 5u; ++x) {
+                s[y][x] = chi[y][x];
+            }
+        }
+        s[0][0] ^= kKeccakRoundConstants[round];
+    }
+
+    for (uint32_t lane = 0; lane < kKeccakLaneCount; ++lane) {
+        const uint32_t y = lane / 5u;
+        const uint32_t x = lane % 5u;
+        output_words[2u * lane] = (uint32_t)(s[y][x] & 0xffffffffULL);
+        output_words[2u * lane + 1u] = (uint32_t)(s[y][x] >> 32);
+    }
+}
+
+static bool compare_full_output(const uint32_t *got,
+                                const uint32_t *expected,
+                                const char *tag) {
+    uint32_t mismatches = 0u;
+    for (uint32_t i = 0; i < kKeccakWordCount; ++i) {
+        if (got[i] != expected[i]) {
+            if (mismatches < 4u) {
+                printf("[FAIL] %s: out[%u]=0x%08x expected=0x%08x\n", tag, i,
+                       got[i], expected[i]);
+            }
+            mismatches++;
+        }
+    }
+
+    if (mismatches != 0u) {
+        printf("[FAIL] %s: %u/%u words mismatched\n", tag, mismatches,
+               (uint32_t)kKeccakWordCount);
+        return false;
+    }
+
+    printf("[PASS] %s: full %u-word reference match\n", tag,
+           (uint32_t)kKeccakWordCount);
+    return true;
 }
 
 static bool words_equal(const uint32_t *a, const uint32_t *b) {
@@ -219,10 +383,23 @@ static bool run_random_batch_regression(keccak_dma_t *keccak,
             printf("[FAIL] random_batch: vector %u run1 failed\n", v);
             return false;
         }
+        keccak_reference_f1600(g_input_words, g_reference_words);
+        if (!compare_full_output(g_output_words, g_reference_words,
+                                 "random_batch_ref_run1")) {
+            printf("[FAIL] random_batch: vector %u reference mismatch in run1\n",
+                   v);
+            return false;
+        }
 
         if (!run_hash_and_check(keccak, g_input_words, g_output_words_repeat,
                                 "random_batch_run2")) {
             printf("[FAIL] random_batch: vector %u run2 failed\n", v);
+            return false;
+        }
+        if (!compare_full_output(g_output_words_repeat, g_reference_words,
+                                 "random_batch_ref_run2")) {
+            printf("[FAIL] random_batch: vector %u reference mismatch in run2\n",
+                   v);
             return false;
         }
 
@@ -253,6 +430,9 @@ int main(void) {
     keccak_dma_init(&keccak, KECCAK_DMA_START_ADDRESS);
     int failures = 0;
 
+    printf("Keccak regression mode: %s (%u random vectors)\n",
+           KECCAK_TEST_MODE_NAME, (uint32_t)kRandomVectorCount);
+
     // 1) Driver-side bad length check.
     fill_pattern_a(g_input_words);
     clear_words(g_output_words);
@@ -274,6 +454,11 @@ int main(void) {
                             "golden_vector")) {
         failures++;
     } else {
+        keccak_reference_f1600(g_input_words, g_reference_words);
+        if (!compare_full_output(g_output_words, g_reference_words,
+                                 "golden_reference")) {
+            failures++;
+        }
         for (int i = 0; i < 4; ++i) {
             if (g_output_words[i] != kGoldenOutputWords[i]) {
                 printf(
@@ -290,6 +475,12 @@ int main(void) {
                                       g_output_words_repeat,
                                       "interrupt_path")) {
         failures++;
+    } else {
+        keccak_reference_f1600(g_input_words, g_reference_words);
+        if (!compare_full_output(g_output_words_repeat, g_reference_words,
+                                 "interrupt_reference")) {
+            failures++;
+        }
     }
 
     // 4) Determinism check: same input twice must produce identical output.
