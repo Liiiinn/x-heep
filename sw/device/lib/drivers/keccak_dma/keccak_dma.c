@@ -1,9 +1,4 @@
-// Copyright 2026 OpenHW Group
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
-// SPDX-License-Identifier: Apache-2.0
-
 #include "keccak_dma.h"
-
 #include "keccak_dma_regs.h"
 
 void keccak_dma_init(keccak_dma_t *keccak, uintptr_t base_addr) {
@@ -51,14 +46,14 @@ bool keccak_dma_has_error(const keccak_dma_t *keccak) {
 keccak_dma_result_t keccak_dma_wait(const keccak_dma_t *keccak,
                                     uint32_t timeout_cycles) {
     while (timeout_cycles > 0u) {
-    const uint32_t status = keccak_dma_get_status(keccak);
-    if ((status >> KECCAK_DMA_STATUS_ERROR_BIT) & 0x1u) {
-        return kKeccakDmaError;
-    }
-    if ((status >> KECCAK_DMA_STATUS_DONE_BIT) & 0x1u) {
+        const uint32_t status = keccak_dma_get_status(keccak);
+        if ((status >> KECCAK_DMA_STATUS_ERROR_BIT) & 0x1u) {
+            return kKeccakDmaError;
+        }
+        if ((status >> KECCAK_DMA_STATUS_DONE_BIT) & 0x1u) {
         return kKeccakDmaOk;
-    }
-    timeout_cycles--;
+        }
+        timeout_cycles--;
     }
 
     return kKeccakDmaTimeout;
@@ -68,10 +63,9 @@ keccak_dma_result_t keccak_dma_hash_block(const keccak_dma_t *keccak,
                                           uintptr_t src_addr,
                                           uintptr_t dst_addr,
                                           uint32_t timeout_cycles) {
-    keccak_dma_result_t ret = keccak_dma_start(keccak, src_addr, dst_addr,
-                                                KECCAK_DMA_BLOCK_BYTES);
+    keccak_dma_result_t ret = keccak_dma_start(keccak, src_addr, dst_addr, KECCAK_DMA_BLOCK_BYTES);
     if (ret != kKeccakDmaOk) {
-            return ret;
+        return ret;
     }
     return keccak_dma_wait(keccak, timeout_cycles);
 }

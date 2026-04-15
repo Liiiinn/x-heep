@@ -1,7 +1,3 @@
-// Copyright 2026 OpenHW Group
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
-// SPDX-License-Identifier: Apache-2.0
-
 #ifndef _KECCAK_DMA_REG_DEFS_
 #define _KECCAK_DMA_REG_DEFS_
 
