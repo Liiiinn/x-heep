@@ -1,85 +1,85 @@
 {
-  name: "keccak",
-  clock_primary: "clk_i",
-  reset_primary: "rst_ni",
-    bus_interfaces: [
-    { protocol: "reg_iface", direction: "device" }],
-  regwidth: "32",
-  registers: [
-    {
-      name: "SRC_ADDR",
-      desc: "Source base address in system memory for DMA reads",
-      swaccess: "rw",
-      hwaccess: "hro",
-      fields: [
+    name: "keccak",
+    clock_primary: "clk_i",
+    reset_primary: "rst_ni",
+        bus_interfaces: [
+        { protocol: "reg_iface", direction: "device" }],
+    regwidth: "32",
+    registers: [
         {
-          bits: "31:0",
-          name: "SRC_ADDR",
-          desc: "DMA source start address"
-        }
-      ]
-    },
-    {
-      name: "DST_ADDR",
-      desc: "Destination base address in system memory for DMA writes",
-      swaccess: "rw",
-      hwaccess: "hro",
-      fields: [
-        {
-          bits: "31:0",
-          name: "DST_ADDR",
-          desc: "DMA destination start address"
-        }
-      ]
-    },
-    {
-      name: "DATA_LEN",
-      desc: "Number of bytes to transfer/process",
-      swaccess: "rw",
-      hwaccess: "hro",
-      fields: [
-        {
-          bits: "31:0",
-          name: "DATA_LEN",
-          desc: "DMA payload length in bytes"
-        }
-      ]
-    },
-    {
-      name: "CTRL",
-      desc: "Control register for DMA Keccak transaction",
-      swaccess: "wo",
-      hwaccess: "hro",
-      fields: [
-        {
-          bits: "0",
-          name: "START",
-          desc: "Write 1 to start DMA read/compute/write sequence"
-        }
-      ]
-    },
-    {
-      name: "STATUS",
-      desc: "Status register for DMA Keccak transaction",
-      swaccess: "ro",
-      hwaccess: "hwo",
-      fields: [
-        {
-          bits: "0",
-          name: "DONE",
-          desc: "Set by hardware when transaction completes"
+            name: "SRC_ADDR",
+            desc: "Source base address in system memory for DMA reads",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "SRC_ADDR",
+                    desc: "DMA source start address"
+                }
+            ]
         },
         {
-          bits: "1",
-          name: "BUSY",
-          desc: "Set while DMA/Keccak transaction is in progress"
+            name: "DST_ADDR",
+            desc: "Destination base address in system memory for DMA writes",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "DST_ADDR",
+                    desc: "DMA destination start address"
+                }
+            ]
         },
         {
-          bits: "2",
-          name: "ERROR",
-          desc: "Set by hardware on protocol/timeout/configuration failure"
+            name: "DATA_LEN",
+            desc: "Number of bytes to transfer/process",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "DATA_LEN",
+                    desc: "DMA payload length in bytes"
+                }
+            ]
+        },
+        {
+            name: "CTRL",
+            desc: "Control register for DMA Keccak transaction",
+            swaccess: "wo",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "0",
+                    name: "START",
+                    desc: "Write 1 to start DMA read/compute/write sequence"
+                }
+            ]
+        },
+        {
+            name: "STATUS",
+            desc: "Status register for DMA Keccak transaction",
+            swaccess: "ro",
+            hwaccess: "hwo",
+            fields: [
+                {
+                    bits: "0",
+                    name: "DONE",
+                    desc: "Set by hardware when transaction completes"
+                },
+                {
+                    bits: "1",
+                    name: "BUSY",
+                    desc: "Set while DMA/Keccak transaction is in progress"
+                },
+                {
+                    bits: "2",
+                    name: "ERROR",
+                    desc: "Set by hardware on protocol/timeout/configuration failure"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
