@@ -1,7 +1,3 @@
-// Copyright 2026 OpenHW Group
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
-// SPDX-License-Identifier: Apache-2.0
-
 #ifndef _DRIVERS_KECCAK_DMA_H_
 #define _DRIVERS_KECCAK_DMA_H_
 
