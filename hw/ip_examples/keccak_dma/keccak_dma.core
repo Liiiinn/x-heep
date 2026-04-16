@@ -3,27 +3,23 @@ CAPI=2:
 name: "example:ip:keccak_dma"
 description: "Keccak-f[1600] DMA external peripheral"
 
-# Copyright 2026 OpenHW Group
-# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
-# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
-
 filesets:
-  files_rtl:
-    depend:
-      - pulp-platform.org::common_cells
-    files:
-      - rtl/common.sv
-      - rtl/keccak_reg_pkg.sv
-      - rtl/keccak_reg_top.sv
-      - rtl/keccak_round_constants.sv
-      - rtl/keccak_round.sv
-      - rtl/keccak_data.sv
-      - rtl/keccak.sv
-      - rtl/keccak_top.sv
-      - rtl/keccak_dma_wrapper.sv
-    file_type: systemVerilogSource
+    files_rtl:
+        depend:
+            - pulp-platform.org::common_cells
+        files:
+            - rtl/common.sv
+            - rtl/keccak_reg_pkg.sv
+            - rtl/keccak_reg_top.sv
+            - rtl/keccak_round_constants.sv
+            - rtl/keccak_round.sv
+            - rtl/keccak_data.sv
+            - rtl/keccak.sv
+            - rtl/keccak_top.sv
+            - rtl/keccak_dma_wrapper.sv
+        file_type: systemVerilogSource
 
 targets:
-  default:
-    filesets:
-      - files_rtl
+    default:
+        filesets:
+            - files_rtl
