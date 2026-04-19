@@ -9,7 +9,7 @@ keccak_dma_result_t keccak_dma_start(const keccak_dma_t *keccak,
                                      uintptr_t src_addr,
                                      uintptr_t dst_addr,
                                      uint32_t data_len_bytes) {
-    if (data_len_bytes != KECCAK_DMA_BLOCK_BYTES) {
+    if ((data_len_bytes == 0u) || (data_len_bytes > KECCAK_DMA_MAX_BYTES)) {
         return kKeccakDmaBadLen;
     }
 

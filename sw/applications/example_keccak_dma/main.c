@@ -29,6 +29,7 @@
 
 enum {
     kKeccakWordCount = 50,
+    kDmaWordBytes = 4,
     kKeccakTimeoutCycles = 1000000u,
     kInterruptEnableBit = (1u << 11),
     kRandomVectorCount = KECCAK_RANDOM_VECTOR_COUNT,
@@ -119,6 +120,25 @@ static void clear_words(uint32_t *buf) {
 static void copy_words(uint32_t *dst, const uint32_t *src) {
     for (uint32_t i = 0; i < kKeccakWordCount; ++i) {
         dst[i] = src[i];
+    }
+}
+
+static uint32_t words_for_len(uint32_t data_len_bytes) {
+    return (data_len_bytes + (kDmaWordBytes - 1u)) / kDmaWordBytes;
+}
+
+static uint32_t tail_mask_for_len(uint32_t data_len_bytes) {
+    switch (data_len_bytes & 0x3u) {
+        case 0u:
+            return 0xffffffffu;
+        case 1u:
+            return 0x000000ffu;
+        case 2u:
+            return 0x0000ffffu;
+        case 3u:
+            return 0x00ffffffu;
+        default:
+            return 0xffffffffu;
     }
 }
 
@@ -362,6 +382,82 @@ static bool run_hash_interrupt_path_test(keccak_dma_t *keccak,
     return true;
 }
 
+static bool run_programmable_len_test(keccak_dma_t *keccak,
+                                      uint32_t data_len_bytes,
+                                      const char *tag) {
+    const uint32_t kSentinelWord = 0xdeadbeefu;
+    const uint32_t word_count = words_for_len(data_len_bytes);
+    const uint32_t tail_mask = tail_mask_for_len(data_len_bytes);
+    const bool has_partial_tail = (data_len_bytes & 0x3u) != 0u;
+
+    if ((data_len_bytes == 0u) || (data_len_bytes > KECCAK_DMA_MAX_BYTES)) {
+        printf("[FAIL] %s: invalid requested data_len=%u\n", tag,
+               data_len_bytes);
+        return false;
+    }
+
+    fill_pattern_a(g_input_words);
+    for (uint32_t i = 0; i < kKeccakWordCount; ++i) {
+        g_output_words_repeat[i] = kSentinelWord;
+        g_output_words_alt[i] = 0u;
+    }
+
+    const keccak_dma_result_t start_ret =
+        keccak_dma_start(keccak, (uintptr_t)g_input_words,
+                         (uintptr_t)g_output_words_repeat, data_len_bytes);
+    if (start_ret != kKeccakDmaOk) {
+        printf("[FAIL] %s: start ret=%d\n", tag, start_ret);
+        return false;
+    }
+
+    const keccak_dma_result_t wait_ret =
+        keccak_dma_wait(keccak, kKeccakTimeoutCycles);
+    const uint32_t status = keccak_dma_get_status(keccak);
+    if (wait_ret != kKeccakDmaOk) {
+        printf("[FAIL] %s: wait ret=%d status=0x%08x\n", tag, wait_ret,
+               status);
+        return false;
+    }
+    if (keccak_dma_has_error(keccak)) {
+        printf("[FAIL] %s: error bit set, status=0x%08x\n", tag, status);
+        return false;
+    }
+
+    for (uint32_t i = 0; i < word_count; ++i) {
+        uint32_t in_word = g_input_words[i];
+        if (has_partial_tail && (i == (word_count - 1u))) {
+            in_word &= tail_mask;
+        }
+        g_output_words_alt[i] = in_word;
+    }
+    keccak_reference_f1600(g_output_words_alt, g_reference_words);
+
+    for (uint32_t i = 0; i < word_count; ++i) {
+        uint32_t expected_word = g_reference_words[i];
+        if (has_partial_tail && (i == (word_count - 1u))) {
+            expected_word = (kSentinelWord & ~tail_mask) |
+                            (g_reference_words[i] & tail_mask);
+        }
+        if (g_output_words_repeat[i] != expected_word) {
+            printf("[FAIL] %s: out[%u]=0x%08x expected=0x%08x\n", tag, i,
+                   g_output_words_repeat[i], expected_word);
+            return false;
+        }
+    }
+
+    for (uint32_t i = word_count; i < kKeccakWordCount; ++i) {
+        if (g_output_words_repeat[i] != kSentinelWord) {
+            printf("[FAIL] %s: out[%u] overwritten to 0x%08x\n", tag, i,
+                   g_output_words_repeat[i]);
+            return false;
+        }
+    }
+
+    printf("[PASS] %s: data_len=%u words=%u tail_mask=0x%08x\n", tag,
+           data_len_bytes, word_count, tail_mask);
+    return true;
+}
+
 static bool run_random_batch_regression(keccak_dma_t *keccak,
                                         uint32_t vector_count) {
     uint32_t rng_state = 0x13579bdfu;
@@ -429,21 +525,44 @@ int main(void) {
     printf("Keccak regression mode: %s (%u random vectors)\n",
            KECCAK_TEST_MODE_NAME, (uint32_t)kRandomVectorCount);
 
-    // 1) Driver-side bad length check.
+    // 1) Driver-side bad length checks.
     fill_pattern_a(g_input_words);
     clear_words(g_output_words);
-    const keccak_dma_result_t bad_len_ret = keccak_dma_start(
+    const keccak_dma_result_t bad_len_zero_ret = keccak_dma_start(
         &keccak, (uintptr_t)g_input_words, (uintptr_t)g_output_words,
-        KECCAK_DMA_BLOCK_BYTES - 4u);
-    if (bad_len_ret != kKeccakDmaBadLen) {
-        printf("[FAIL] bad_len: expected %d, got %d\n", kKeccakDmaBadLen,
-               bad_len_ret);
+        0u);
+    if (bad_len_zero_ret != kKeccakDmaBadLen) {
+        printf("[FAIL] bad_len_zero: expected %d, got %d\n", kKeccakDmaBadLen,
+               bad_len_zero_ret);
         failures++;
     } else {
-        printf("[PASS] bad_len: got expected return code %d\n", bad_len_ret);
+        printf("[PASS] bad_len_zero: got expected return code %d\n",
+               bad_len_zero_ret);
     }
 
-    // 2) Golden vector regression check.
+    const keccak_dma_result_t bad_len_overflow_ret = keccak_dma_start(
+        &keccak, (uintptr_t)g_input_words, (uintptr_t)g_output_words,
+        KECCAK_DMA_MAX_BYTES + 4u);
+    if (bad_len_overflow_ret != kKeccakDmaBadLen) {
+        printf("[FAIL] bad_len_overflow: expected %d, got %d\n",
+               kKeccakDmaBadLen, bad_len_overflow_ret);
+        failures++;
+    } else {
+        printf("[PASS] bad_len_overflow: got expected return code %d\n",
+               bad_len_overflow_ret);
+    }
+
+    // 2) Programmable data length checks (word aligned and unaligned tail).
+    if (!run_programmable_len_test(&keccak, KECCAK_DMA_BLOCK_BYTES - 4u,
+                                   "prog_len_196B")) {
+        failures++;
+    }
+    if (!run_programmable_len_test(&keccak, KECCAK_DMA_BLOCK_BYTES - 3u,
+                                   "prog_len_197B")) {
+        failures++;
+    }
+
+    // 3) Golden vector regression check.
     fill_pattern_a(g_input_words);
     clear_words(g_output_words);
     if (!run_hash_and_check(&keccak, g_input_words, g_output_words,
@@ -465,7 +584,7 @@ int main(void) {
         }
     }
 
-    // 3) Interrupt-path check: completion must also be observable as external IRQ.
+    // 4) Interrupt-path check: completion must also be observable as external IRQ.
     fill_pattern_a(g_input_words);
     if (!run_hash_interrupt_path_test(&keccak, g_input_words,
                                       g_output_words_repeat,
@@ -479,7 +598,7 @@ int main(void) {
         }
     }
 
-    // 4) Determinism check: same input twice must produce identical output.
+    // 5) Determinism check: same input twice must produce identical output.
     clear_words(g_output_words_repeat);
     if (!run_hash_and_check(&keccak, g_input_words, g_output_words_repeat,
                             "repeat_vector")) {
@@ -491,7 +610,7 @@ int main(void) {
         printf("[PASS] determinism: repeated run matches golden output\n");
     }
 
-    // 5) Input sensitivity check: different input should produce different output.
+    // 6) Input sensitivity check: different input should produce different output.
     fill_pattern_b(g_input_words);
     clear_words(g_output_words_alt);
     if (!run_hash_and_check(&keccak, g_input_words, g_output_words_alt,
@@ -504,7 +623,7 @@ int main(void) {
         printf("[PASS] sensitivity: alternate input changes output\n");
     }
 
-    // 6) Random multi-vector regression check.
+    // 7) Random multi-vector regression check.
     if (!run_random_batch_regression(&keccak, kRandomVectorCount)) {
         failures++;
     }
