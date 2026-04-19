@@ -30,6 +30,7 @@ module keccak (
     localparam int unsigned DMA_WORD_BYTES = 4;
     localparam int unsigned KECCAK_BLOCK_WORDS = 50;
     localparam int unsigned KECCAK_BLOCK_BYTES = KECCAK_BLOCK_WORDS * DMA_WORD_BYTES;
+    localparam int unsigned KECCAK_MAX_XFER_BYTES = 256;
     localparam int unsigned WORD_IDX_W = $clog2(KECCAK_BLOCK_WORDS);
     localparam int unsigned CNT_W = $clog2(KECCAK_BLOCK_WORDS + 1);
     localparam int unsigned OBI_TIMEOUT_CYCLES = 1024;
@@ -72,6 +73,16 @@ module keccak (
         end
     endfunction
 
+    function automatic logic [31:0] clamp_chunk_bytes(input logic [31:0] byte_len);
+        begin
+            if (byte_len > KECCAK_BLOCK_BYTES) begin
+                clamp_chunk_bytes = KECCAK_BLOCK_BYTES;
+            end else begin
+                clamp_chunk_bytes = byte_len;
+            end
+        end
+    endfunction
+
     typedef enum logic [2:0] {
         ST_IDLE,
         ST_READ_XFER,
@@ -86,6 +97,9 @@ module keccak (
     dma_state_e state_q, state_d;
 
     logic [31:0] src_addr_q, dst_addr_q;
+    logic [31:0] byte_offset_q;
+    logic [31:0] bytes_remaining_q;
+    logic [31:0] chunk_bytes_q;
     logic [31:0] din_words[0:KECCAK_BLOCK_WORDS-1];
     logic [31:0] dout_words[0:KECCAK_BLOCK_WORDS-1];
     logic [CNT_W-1:0] word_count_q;
@@ -98,7 +112,11 @@ module keccak (
     logic [CNT_W-1:0] outstanding_cnt_q;
     logic [OBI_TMO_W-1:0] obi_timeout_cnt_q;
     logic [CORE_TMO_W-1:0] core_timeout_cnt_q;
-    logic [CNT_W-1:0] data_len_words_i;
+    logic [31:0] first_chunk_bytes_i;
+    logic [31:0] next_remaining_bytes_i;
+    logic [31:0] next_chunk_bytes_i;
+    logic [CNT_W-1:0] first_chunk_words_i;
+    logic [CNT_W-1:0] next_chunk_words_i;
     logic [WORD_IDX_W-1:0] req_word_idx;
     logic [WORD_IDX_W-1:0] rsp_word_idx;
 
@@ -118,6 +136,7 @@ module keccak (
     logic obi_tmo_inc;
     logic core_tmo_clr;
     logic core_tmo_inc;
+    logic advance_chunk;
     logic done_q;
     logic error_q;
     logic intr_q;
@@ -131,7 +150,11 @@ module keccak (
         end
     endgenerate
 
-    assign data_len_words_i = bytes_to_words(data_len_i);
+    assign first_chunk_bytes_i = clamp_chunk_bytes(data_len_i);
+    assign first_chunk_words_i = bytes_to_words(first_chunk_bytes_i);
+    assign next_remaining_bytes_i = bytes_remaining_q - chunk_bytes_q;
+    assign next_chunk_bytes_i = clamp_chunk_bytes(next_remaining_bytes_i);
+    assign next_chunk_words_i = bytes_to_words(next_chunk_bytes_i);
 
     assign req_word_idx = (gnt_cnt_q < word_count_q) ?
                           gnt_cnt_q[WORD_IDX_W-1:0] :
@@ -160,6 +183,7 @@ module keccak (
         obi_tmo_inc     = 1'b0;
         core_tmo_clr    = 1'b1;
         core_tmo_inc    = 1'b0;
+        advance_chunk   = 1'b0;
         error_set       = 1'b0;
         core_start      = 1'b0;
 
@@ -173,7 +197,7 @@ module keccak (
             ST_IDLE: begin
                 if (start_i) begin
                     if ((data_len_i != 32'h0) &&
-                        (data_len_i <= KECCAK_BLOCK_BYTES)) begin
+                        (data_len_i <= KECCAK_MAX_XFER_BYTES)) begin
                         latch_cfg = 1'b1;
                         cnt_clr   = 1'b1;
                         state_d   = ST_READ_XFER;
@@ -187,7 +211,7 @@ module keccak (
             ST_READ_XFER: begin
                 obi_tmo_clr = 1'b0;
                 obi_we_o = 1'b0;
-                obi_addr_o = src_addr_q + {24'h0, req_word_idx, 2'b00};
+                obi_addr_o = src_addr_q + byte_offset_q + {24'h0, req_word_idx, 2'b00};
 
                 if (gnt_cnt_q < word_count_q) begin
                     obi_req_o = 1'b1;
@@ -262,7 +286,7 @@ module keccak (
             ST_WRITE_XFER: begin
                 obi_tmo_clr = 1'b0;
                 obi_we_o    = 1'b1;
-                obi_addr_o  = dst_addr_q + {24'h0, req_word_idx, 2'b00};
+                obi_addr_o  = dst_addr_q + byte_offset_q + {24'h0, req_word_idx, 2'b00};
                 obi_wdata_o = dout_words[req_word_idx];
                 obi_be_o    = (gnt_cnt_q == last_word_cnt_q) ? last_word_be_q : 4'hF;
 
@@ -286,7 +310,13 @@ module keccak (
                         obi_tmo_clr = 1'b1;
 
                         if (rvalid_cnt_q == last_word_cnt_q) begin
-                            state_d = ST_DONE;
+                            if (bytes_remaining_q > chunk_bytes_q) begin
+                                cnt_clr = 1'b1;
+                                advance_chunk = 1'b1;
+                                state_d = ST_READ_XFER;
+                            end else begin
+                                state_d = ST_DONE;
+                            end
                         end
                     end
                 end
@@ -319,6 +349,9 @@ module keccak (
         state_q            <= ST_IDLE;
         src_addr_q         <= 32'h0;
         dst_addr_q         <= 32'h0;
+        byte_offset_q      <= 32'h0;
+        bytes_remaining_q  <= 32'h0;
+        chunk_bytes_q      <= 32'h0;
         word_count_q       <= '0;
         last_word_cnt_q    <= '0;
         tail_bytes_q       <= 2'b00;
@@ -342,14 +375,30 @@ module keccak (
             if (latch_cfg) begin
                 src_addr_q <= src_addr_i;
                 dst_addr_q <= dst_addr_i;
-                word_count_q <= data_len_words_i;
-                last_word_cnt_q <= data_len_words_i - 1'b1;
-                tail_bytes_q <= data_len_i[1:0];
-                tail_mask_q <= tail_word_mask(data_len_i[1:0]);
-                last_word_be_q <= tail_write_be(data_len_i[1:0]);
+                byte_offset_q <= 32'h0;
+                bytes_remaining_q <= data_len_i;
+                chunk_bytes_q <= first_chunk_bytes_i;
+                word_count_q <= first_chunk_words_i;
+                last_word_cnt_q <= first_chunk_words_i - 1'b1;
+                tail_bytes_q <= first_chunk_bytes_i[1:0];
+                tail_mask_q <= tail_word_mask(first_chunk_bytes_i[1:0]);
+                last_word_be_q <= tail_write_be(first_chunk_bytes_i[1:0]);
                 done_q     <= 1'b0;
                 error_q    <= 1'b0;
                 intr_q     <= 1'b0;
+
+                for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
+                    din_words[wi] <= 32'h0;
+                end
+            end else if (advance_chunk) begin
+                byte_offset_q <= byte_offset_q + chunk_bytes_q;
+                bytes_remaining_q <= next_remaining_bytes_i;
+                chunk_bytes_q <= next_chunk_bytes_i;
+                word_count_q <= next_chunk_words_i;
+                last_word_cnt_q <= next_chunk_words_i - 1'b1;
+                tail_bytes_q <= next_chunk_bytes_i[1:0];
+                tail_mask_q <= tail_word_mask(next_chunk_bytes_i[1:0]);
+                last_word_be_q <= tail_write_be(next_chunk_bytes_i[1:0]);
 
                 for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                     din_words[wi] <= 32'h0;

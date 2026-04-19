@@ -29,6 +29,7 @@
 
 enum {
     kKeccakWordCount = 50,
+    kChunkedMaxWordCount = 64,
     kDmaWordBytes = 4,
     kKeccakTimeoutCycles = 1000000u,
     kInterruptEnableBit = (1u << 11),
@@ -390,7 +391,7 @@ static bool run_programmable_len_test(keccak_dma_t *keccak,
     const uint32_t tail_mask = tail_mask_for_len(data_len_bytes);
     const bool has_partial_tail = (data_len_bytes & 0x3u) != 0u;
 
-    if ((data_len_bytes == 0u) || (data_len_bytes > KECCAK_DMA_MAX_BYTES)) {
+    if ((data_len_bytes == 0u) || (data_len_bytes > KECCAK_DMA_BLOCK_BYTES)) {
         printf("[FAIL] %s: invalid requested data_len=%u\n", tag,
                data_len_bytes);
         return false;
@@ -455,6 +456,122 @@ static bool run_programmable_len_test(keccak_dma_t *keccak,
 
     printf("[PASS] %s: data_len=%u words=%u tail_mask=0x%08x\n", tag,
            data_len_bytes, word_count, tail_mask);
+    return true;
+}
+
+static bool run_programmable_len_chunked_test(keccak_dma_t *keccak,
+                                              uint32_t data_len_bytes,
+                                              const char *tag) {
+    const uint32_t kSentinelWord = 0xdeadbeefu;
+    const uint32_t total_word_count = words_for_len(data_len_bytes);
+    static uint32_t chunked_input_words[kChunkedMaxWordCount]
+        __attribute__((aligned(4)));
+    static uint32_t chunked_output_words[kChunkedMaxWordCount]
+        __attribute__((aligned(4)));
+    static uint32_t chunked_expected_words[kChunkedMaxWordCount]
+        __attribute__((aligned(4)));
+    uint32_t ref_input_words[kKeccakWordCount];
+    uint32_t ref_output_words[kKeccakWordCount];
+
+    if ((data_len_bytes <= KECCAK_DMA_BLOCK_BYTES) ||
+        (data_len_bytes > KECCAK_DMA_MAX_BYTES)) {
+        printf("[FAIL] %s: invalid chunked data_len=%u\n", tag,
+               data_len_bytes);
+        return false;
+    }
+    if (total_word_count > kChunkedMaxWordCount) {
+        printf("[FAIL] %s: word_count=%u exceeds test buffer\n", tag,
+               total_word_count);
+        return false;
+    }
+
+    uint32_t rng_state = 0x2468ace1u;
+    for (uint32_t i = 0; i < kChunkedMaxWordCount; ++i) {
+        if (i < total_word_count) {
+            rng_state = rng_state * 1664525u + 1013904223u;
+            chunked_input_words[i] = rng_state ^ (i * 0x9e3779b9u);
+        } else {
+            chunked_input_words[i] = 0u;
+        }
+        chunked_output_words[i] = kSentinelWord;
+        chunked_expected_words[i] = kSentinelWord;
+    }
+
+    const keccak_dma_result_t start_ret = keccak_dma_start(
+        keccak, (uintptr_t)chunked_input_words, (uintptr_t)chunked_output_words,
+        data_len_bytes);
+    if (start_ret != kKeccakDmaOk) {
+        printf("[FAIL] %s: start ret=%d\n", tag, start_ret);
+        return false;
+    }
+
+    const keccak_dma_result_t wait_ret =
+        keccak_dma_wait(keccak, kKeccakTimeoutCycles);
+    const uint32_t status = keccak_dma_get_status(keccak);
+    if (wait_ret != kKeccakDmaOk) {
+        printf("[FAIL] %s: wait ret=%d status=0x%08x\n", tag, wait_ret,
+               status);
+        return false;
+    }
+    if (keccak_dma_has_error(keccak)) {
+        printf("[FAIL] %s: error bit set, status=0x%08x\n", tag, status);
+        return false;
+    }
+
+    uint32_t remaining_bytes = data_len_bytes;
+    uint32_t word_offset = 0u;
+    uint32_t chunk_count = 0u;
+    while (remaining_bytes != 0u) {
+        const uint32_t chunk_bytes = (remaining_bytes > KECCAK_DMA_BLOCK_BYTES)
+                                         ? KECCAK_DMA_BLOCK_BYTES
+                                         : remaining_bytes;
+        const uint32_t chunk_words = words_for_len(chunk_bytes);
+        const uint32_t chunk_tail_mask = tail_mask_for_len(chunk_bytes);
+        const bool chunk_has_partial_tail = (chunk_bytes & 0x3u) != 0u;
+
+        clear_words(ref_input_words);
+        for (uint32_t i = 0; i < chunk_words; ++i) {
+            uint32_t in_word = chunked_input_words[word_offset + i];
+            if (chunk_has_partial_tail && (i == (chunk_words - 1u))) {
+                in_word &= chunk_tail_mask;
+            }
+            ref_input_words[i] = in_word;
+        }
+
+        keccak_reference_f1600(ref_input_words, ref_output_words);
+
+        for (uint32_t i = 0; i < chunk_words; ++i) {
+            uint32_t expected_word = ref_output_words[i];
+            if (chunk_has_partial_tail && (i == (chunk_words - 1u))) {
+                expected_word = (kSentinelWord & ~chunk_tail_mask) |
+                                (ref_output_words[i] & chunk_tail_mask);
+            }
+            chunked_expected_words[word_offset + i] = expected_word;
+        }
+
+        remaining_bytes -= chunk_bytes;
+        word_offset += chunk_words;
+        chunk_count++;
+    }
+
+    for (uint32_t i = 0; i < total_word_count; ++i) {
+        if (chunked_output_words[i] != chunked_expected_words[i]) {
+            printf("[FAIL] %s: out[%u]=0x%08x expected=0x%08x\n", tag, i,
+                   chunked_output_words[i], chunked_expected_words[i]);
+            return false;
+        }
+    }
+
+    for (uint32_t i = total_word_count; i < kChunkedMaxWordCount; ++i) {
+        if (chunked_output_words[i] != kSentinelWord) {
+            printf("[FAIL] %s: out[%u] overwritten to 0x%08x\n", tag, i,
+                   chunked_output_words[i]);
+            return false;
+        }
+    }
+
+    printf("[PASS] %s: data_len=%u words=%u chunks=%u\n", tag, data_len_bytes,
+           total_word_count, chunk_count);
     return true;
 }
 
@@ -552,7 +669,29 @@ int main(void) {
                bad_len_overflow_ret);
     }
 
-    // 2) Programmable data length checks (word aligned and unaligned tail).
+    // 2) Programmable data length checks (PQC-relevant + near-maximum cases).
+    if (!run_programmable_len_test(&keccak, 32u, "prog_len_32B")) {
+        failures++;
+    }
+    if (!run_programmable_len_test(&keccak, 48u, "prog_len_48B")) {
+        failures++;
+    }
+    if (!run_programmable_len_test(&keccak, 64u, "prog_len_64B")) {
+        failures++;
+    }
+    if (!run_programmable_len_test(&keccak, 80u, "prog_len_80B")) {
+        failures++;
+    }
+    if (!run_programmable_len_test(&keccak, 128u, "prog_len_hqc_128B")) {
+        failures++;
+    }
+    if (!run_programmable_len_test(&keccak, 192u, "prog_len_hqc_192B")) {
+        failures++;
+    }
+    if (!run_programmable_len_chunked_test(&keccak, 256u,
+                                           "prog_len_hqc_256B")) {
+        failures++;
+    }
     if (!run_programmable_len_test(&keccak, KECCAK_DMA_BLOCK_BYTES - 4u,
                                    "prog_len_196B")) {
         failures++;
