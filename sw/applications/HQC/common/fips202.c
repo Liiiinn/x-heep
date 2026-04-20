@@ -6,11 +6,24 @@
  * by Gilles Van Assche, Daniel J. Bernstein, and Peter Schwabe */
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "fips202.h"
+
+#ifndef HQC_USE_KECCAK_DMA
+#define HQC_USE_KECCAK_DMA 1
+#endif
+
+#if HQC_USE_KECCAK_DMA
+#include "keccak_dma.h"
+
+#ifndef HQC_KECCAK_DMA_TIMEOUT_CYCLES
+#define HQC_KECCAK_DMA_TIMEOUT_CYCLES 1000000u
+#endif
+#endif
 
 #define NROUNDS 24
 #define ROL(a, offset) (((a) << (offset)) ^ ((a) >> (64 - (offset))))
@@ -27,6 +40,54 @@ static inline uint64_t hqc_read_cycle64(void) {
     } while (hi0 != hi1);
     return ((uint64_t)hi1 << 32) | lo;
 }
+
+#if HQC_USE_KECCAK_DMA
+static bool g_keccak_dma_initialized = false;
+static bool g_keccak_dma_disabled = false;
+static keccak_dma_t g_keccak_dma;
+static uint32_t g_keccak_dma_in_words[KECCAK_DMA_BLOCK_BYTES / sizeof(uint32_t)]
+    __attribute__((aligned(4)));
+static uint32_t g_keccak_dma_out_words[KECCAK_DMA_BLOCK_BYTES / sizeof(uint32_t)]
+    __attribute__((aligned(4)));
+
+static inline void hqc_keccak_dma_init_once(void) {
+    if (!g_keccak_dma_initialized && !g_keccak_dma_disabled) {
+        keccak_dma_init(&g_keccak_dma, KECCAK_DMA_START_ADDRESS);
+        g_keccak_dma_initialized = true;
+    }
+}
+
+static bool hqc_keccak_dma_permute(uint64_t *state) {
+    hqc_keccak_dma_init_once();
+    if (!g_keccak_dma_initialized || g_keccak_dma_disabled) {
+        return false;
+    }
+
+    for (size_t lane = 0; lane < 25; ++lane) {
+        const uint64_t v = state[lane];
+        g_keccak_dma_in_words[2 * lane] = (uint32_t)(v & 0xffffffffu);
+        g_keccak_dma_in_words[2 * lane + 1] = (uint32_t)(v >> 32);
+    }
+
+    const keccak_dma_result_t ret =
+        keccak_dma_hash_block(&g_keccak_dma, (uintptr_t)g_keccak_dma_in_words,
+                              (uintptr_t)g_keccak_dma_out_words,
+                              HQC_KECCAK_DMA_TIMEOUT_CYCLES);
+    if (ret != kKeccakDmaOk) {
+        // If DMA access fails once, disable hardware offload and keep running in
+        // software to preserve functional correctness.
+        g_keccak_dma_disabled = true;
+        return false;
+    }
+
+    for (size_t lane = 0; lane < 25; ++lane) {
+        state[lane] = ((uint64_t)g_keccak_dma_out_words[2 * lane + 1] << 32) |
+                      (uint64_t)g_keccak_dma_out_words[2 * lane];
+    }
+
+    return true;
+}
+#endif
 
 /*************************************************
  * Name:        load64
@@ -85,6 +146,15 @@ static const uint64_t KeccakF_RoundConstants[NROUNDS] = {
  **************************************************/
 static void KeccakF1600_StatePermute(uint64_t *state) {
     uint64_t keccak_start_cycles = hqc_read_cycle64();
+
+#if HQC_USE_KECCAK_DMA
+    if (hqc_keccak_dma_permute(state)) {
+        g_keccak_cycles += (hqc_read_cycle64() - keccak_start_cycles);
+        g_keccak_calls++;
+        return;
+    }
+#endif
+
     int round;
 
     uint64_t Aba, Abe, Abi, Abo, Abu;
