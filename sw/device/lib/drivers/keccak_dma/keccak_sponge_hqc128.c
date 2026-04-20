@@ -27,6 +27,9 @@ keccak_dma_result_t keccak_sponge_init(
     if (ctx == NULL || keccak == NULL) {
         return kKeccakDmaBadLen;
     }
+    if (((state_addr | output_addr) & (KECCAK_DMA_ADDR_ALIGN_BYTES - 1u)) != 0u) {
+        return kKeccakDmaBadAddr;
+    }
     
     ctx->keccak = keccak;
     ctx->state_addr = state_addr;

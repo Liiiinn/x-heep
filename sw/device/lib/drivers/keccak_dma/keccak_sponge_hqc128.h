@@ -35,9 +35,10 @@ typedef struct {
  *
  * @param[out] ctx Context structure
  * @param[in] keccak Initialized Keccak DMA instance
- * @param[in] state_addr DMA accessible memory for Keccak state (200 bytes)
- * @param[in] output_addr DMA accessible memory for output (200 bytes)
+ * @param[in] state_addr DMA accessible memory for Keccak state (200 bytes, 4-byte aligned)
+ * @param[in] output_addr DMA accessible memory for output (200 bytes, 4-byte aligned)
  * @return kKeccakDmaOk on success
+ * @return kKeccakDmaBadAddr if state_addr/output_addr is not 4-byte aligned
  */
 keccak_dma_result_t keccak_sponge_init(
     keccak_sponge_hqc128_ctx_t *ctx,

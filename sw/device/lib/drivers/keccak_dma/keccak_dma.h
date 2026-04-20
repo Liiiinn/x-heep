@@ -15,12 +15,14 @@ extern "C" {
 #define KECCAK_DMA_INTR_NUM EXT_INTR_3
 #define KECCAK_DMA_BLOCK_BYTES 200u
 #define KECCAK_DMA_MAX_BYTES 256u
+#define KECCAK_DMA_ADDR_ALIGN_BYTES 4u
 
 typedef enum keccak_dma_result {
     kKeccakDmaOk = 0,
     kKeccakDmaTimeout = -1,
     kKeccakDmaError = -2,
     kKeccakDmaBadLen = -3,
+    kKeccakDmaBadAddr = -4,
 } keccak_dma_result_t;
 
 typedef struct keccak_dma {

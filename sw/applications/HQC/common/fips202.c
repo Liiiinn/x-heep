@@ -30,6 +30,8 @@
 
 static uint64_t g_keccak_cycles = 0;
 static uint32_t g_keccak_calls = 0;
+static uint32_t g_keccak_dma_calls = 0;
+static uint32_t g_keccak_dma_fallbacks = 0;
 
 static inline uint64_t hqc_read_cycle64(void) {
     uint32_t hi0, lo, hi1;
@@ -76,6 +78,7 @@ static bool hqc_keccak_dma_permute(uint64_t *state) {
     if (ret != kKeccakDmaOk) {
         // If DMA access fails once, disable hardware offload and keep running in
         // software to preserve functional correctness.
+        g_keccak_dma_fallbacks++;
         g_keccak_dma_disabled = true;
         return false;
     }
@@ -85,6 +88,7 @@ static bool hqc_keccak_dma_permute(uint64_t *state) {
                       (uint64_t)g_keccak_dma_out_words[2 * lane];
     }
 
+    g_keccak_dma_calls++;
     return true;
 }
 #endif
@@ -423,6 +427,8 @@ static void KeccakF1600_StatePermute(uint64_t *state) {
 void hqc_keccak_profile_reset(void) {
     g_keccak_cycles = 0;
     g_keccak_calls = 0;
+    g_keccak_dma_calls = 0;
+    g_keccak_dma_fallbacks = 0;
 }
 
 uint64_t hqc_keccak_profile_get_cycles(void) {
@@ -431,6 +437,14 @@ uint64_t hqc_keccak_profile_get_cycles(void) {
 
 uint32_t hqc_keccak_profile_get_calls(void) {
     return g_keccak_calls;
+}
+
+uint32_t hqc_keccak_profile_get_dma_calls(void) {
+    return g_keccak_dma_calls;
+}
+
+uint32_t hqc_keccak_profile_get_dma_fallbacks(void) {
+    return g_keccak_dma_fallbacks;
 }
 
 /*************************************************

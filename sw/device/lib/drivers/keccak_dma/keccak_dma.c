@@ -12,6 +12,9 @@ keccak_dma_result_t keccak_dma_start(const keccak_dma_t *keccak,
     if ((data_len_bytes == 0u) || (data_len_bytes > KECCAK_DMA_MAX_BYTES)) {
         return kKeccakDmaBadLen;
     }
+    if (((src_addr | dst_addr) & (KECCAK_DMA_ADDR_ALIGN_BYTES - 1u)) != 0u) {
+        return kKeccakDmaBadAddr;
+    }
 
     mmio_region_write32(keccak->base_addr, KECCAK_DMA_SRC_ADDR_REG_OFFSET,
                         (uint32_t)src_addr);
