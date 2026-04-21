@@ -4,8 +4,13 @@
 
 #include "x-heep.h"
 #include "keccak_dma.h"
-#include "keccak_sponge_hqc128.h"
-#include "keccak_sponge_hqc128_optimized.h"
+#include "csr.h"
+#include "csr_registers.h"
+#include "hqc_port/fips202.h"
+#include "hqc_port/hqc_phase2_shake_backend.h"
+#include "../HQC/src/shake_ds.h"
+#include "../HQC/src/domains.h"
+#include "../HQC/src/parameters.h"
 
 static uint32_t g_keccak_dma_state_words[KECCAK_DMA_BLOCK_BYTES / sizeof(uint32_t)]
     __attribute__((aligned(4)));
@@ -15,226 +20,172 @@ static uint32_t g_keccak_dma_out_words[KECCAK_DMA_BLOCK_BYTES / sizeof(uint32_t)
 #define KECCAK_STATE_ADDR  ((uintptr_t)g_keccak_dma_state_words)
 #define KECCAK_OUTPUT_ADDR ((uintptr_t)g_keccak_dma_out_words)
 
+static uint8_t g_out_p1[SHAKE256_512_BYTES];
+static uint8_t g_out_p2[SHAKE256_512_BYTES];
+static uint8_t g_g_input[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES];
+static uint8_t g_k_input[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES];
+
+typedef struct {
+    const char *name;
+    const uint8_t *input;
+    size_t inlen;
+    uint8_t domain;
+} l1_case_t;
+
+typedef struct {
+    uint32_t cycles;
+    uint64_t keccak_cycles;
+    uint32_t keccak_calls;
+} run_stats_t;
+
+static inline void enable_cycle_counter(void) {
+    CSR_CLEAR_BITS(CSR_REG_MCOUNTINHIBIT, 0x1u);
+}
+
 static inline uint32_t read_cycles(void) {
     uint32_t c;
     asm volatile("csrr %0, mcycle" : "=r"(c));
     return c;
 }
 
-typedef struct {
-    const char *name;
-    size_t size;
-    uint8_t domain;
-} test_t;
-
-static void gen_data(uint8_t *d, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        d[i] = ((i * 17 + 53) ^ (i >> 3)) & 0xFF;
+static void fill_pattern(uint8_t *dst, size_t len, uint8_t seed) {
+    uint8_t x = seed;
+    for (size_t i = 0; i < len; ++i) {
+        x = (uint8_t)(x * 33u + 17u);
+        dst[i] = (uint8_t)(x ^ (uint8_t)i);
     }
 }
 
-static keccak_dma_result_t bench_p1(const uint8_t *d, size_t len, uint8_t domain,
-                                    keccak_dma_t *k, uint32_t *cycles) {
-    uint8_t o[64];
-    uint32_t s = read_cycles();
-    keccak_sponge_hqc128_ctx_t ctx;
-    keccak_dma_result_t ret = keccak_sponge_init(&ctx, k, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_absorb(&ctx, d, len);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_finalize(&ctx, domain);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_squeeze(&ctx, o, 64);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    *cycles = read_cycles() - s;
-    return kKeccakDmaOk;
+static run_stats_t run_shake_case(hqc_phase2_shake_backend_t backend,
+                                  const uint8_t *input,
+                                  size_t inlen,
+                                  uint8_t domain,
+                                  uint8_t *out) {
+    run_stats_t stats = {0};
+    shake256incctx state;
+    hqc_phase2_set_shake_backend(backend);
+    hqc_keccak_profile_reset();
+    uint32_t start = read_cycles();
+    PQCLEAN_HQC128_CLEAN_shake256_512_ds(&state, out, input, inlen, domain);
+    stats.cycles = read_cycles() - start;
+    stats.keccak_cycles = hqc_keccak_profile_get_cycles();
+    stats.keccak_calls = hqc_keccak_profile_get_calls();
+    return stats;
 }
 
-static keccak_dma_result_t bench_p2(const uint8_t *d, size_t len, uint8_t domain,
-                                    keccak_dma_t *k, uint32_t *cycles) {
-    uint8_t o[64];
-    uint32_t s = read_cycles();
-    keccak_sponge_opt_ctx_t ctx;
-    keccak_dma_result_t ret = keccak_sponge_init_opt(&ctx, k, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_absorb_opt(&ctx, d, len);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_finalize_opt(&ctx, domain);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_squeeze_opt(&ctx, o, 64);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    *cycles = read_cycles() - s;
-    return kKeccakDmaOk;
-}
-
-static keccak_dma_result_t verify(const uint8_t *d, size_t len, uint8_t domain,
-                                  keccak_dma_t *k, int *match) {
-    uint8_t o1[64], o2[64];
-    keccak_dma_result_t ret;
-    
-    keccak_sponge_hqc128_ctx_t ctx1;
-    ret = keccak_sponge_init(&ctx1, k, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_absorb(&ctx1, d, len);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_finalize(&ctx1, domain);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_squeeze(&ctx1, o1, 64);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    
-    keccak_sponge_opt_ctx_t ctx2;
-    ret = keccak_sponge_init_opt(&ctx2, k, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_absorb_opt(&ctx2, d, len);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_finalize_opt(&ctx2, domain);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    ret = keccak_sponge_squeeze_opt(&ctx2, o2, 64);
-    if (ret != kKeccakDmaOk) {
-        return ret;
-    }
-    
-    *match = (memcmp(o1, o2, 64) == 0);
-    if (!(*match)) {
-        printf("[DBG] len=%u domain=0x%02x\n", (unsigned)len, domain);
-        printf("[DBG] p1[0..7]=%02x %02x %02x %02x %02x %02x %02x %02x\n",
-               o1[0], o1[1], o1[2], o1[3], o1[4], o1[5], o1[6], o1[7]);
-        printf("[DBG] p2[0..7]=%02x %02x %02x %02x %02x %02x %02x %02x\n",
-               o2[0], o2[1], o2[2], o2[3], o2[4], o2[5], o2[6], o2[7]);
-    }
-    return kKeccakDmaOk;
+static void print_row(const char *name, uint32_t p1, uint32_t p2, int match) {
+    int32_t gain = (int32_t)p1 - (int32_t)p2;
+    uint32_t abs_gain = (gain >= 0) ? (uint32_t)gain : (uint32_t)(-gain);
+    uint32_t imp_tenths = (p1 > 0) ? ((abs_gain * 1000u) / p1) : 0u;
+    char sign = (gain >= 0) ? '+' : '-';
+    printf("%-20s │ %9u │ %9u │ %+8d │ %c%3u.%1u%% │ %s\n",
+           name, p1, p2, gain, sign, imp_tenths / 10u, imp_tenths % 10u, match ? "PASS" : "FAIL");
 }
 
 int main(void) {
+    printf("[DBG] entered main\n");
+    enable_cycle_counter();
+    printf("[DBG] cycle counter enabled\n");
+
     printf("\n");
-    printf("╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║         Phase 2 Sponge Optimization Lightweight Benchmark     ║\n");
-    printf("║              (HQC-128 Call Pattern Simulation)                 ║\n");
-    printf("╚════════════════════════════════════════════════════════════════╝\n\n");
-    
+    printf("╔══════════════════════════════════════════════════════════════════════╗\n");
+    printf("║          HQC-128 Phase1/Phase2 SHAKE L1 Quick Regression            ║\n");
+    printf("║   Real shake256_512_ds path + G/K domain semantics + edge lengths   ║\n");
+    printf("╚══════════════════════════════════════════════════════════════════════╝\n\n");
+
     keccak_dma_t keccak;
+    printf("[DBG] before keccak_dma_init\n");
     keccak_dma_init(&keccak, KECCAK_DMA_START_ADDRESS);
-    printf("[OK] Keccak DMA initialized\n\n");
+    printf("[OK] Keccak DMA initialized\n");
 
     memset(g_keccak_dma_state_words, 0, sizeof(g_keccak_dma_state_words));
+    printf("[DBG] before DMA probe\n");
     keccak_dma_result_t probe_ret = keccak_dma_hash_block(
-        &keccak,
-        KECCAK_STATE_ADDR,
-        KECCAK_OUTPUT_ADDR,
-        10000u
-    );
+        &keccak, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR, 10000u);
     if (probe_ret != kKeccakDmaOk) {
         printf("[ERROR] DMA probe failed (ret=%d)\n", (int)probe_ret);
         printf("[INFO] Exit code: 2\n");
         return 2;
     }
-    printf("[OK] DMA probe passed\n\n");
-    
-    test_t tests[] = {
-        {.name = "Empty (0B)", .size = 0, .domain = 0x03},
-        {.name = "Small (64B)", .size = 64, .domain = 0x03},
-        {.name = "1 rate block (136B)", .size = 136, .domain = 0x03},
-        {.name = "2 rate blocks (272B)", .size = 272, .domain = 0x03},
-        {.name = "10 blocks (1360B)", .size = 1360, .domain = 0x03},
-        {.name = "HQC G-func (2281B)", .size = 2281, .domain = 0x03},
-        {.name = "HQC K-func (4433B)", .size = 4433, .domain = 0x04},
-    };
-    
-    size_t num_tests = sizeof(tests) / sizeof(tests[0]);
-    static uint8_t data[4433] __attribute__((aligned(4)));
-    
-    printf("test case              │   Phase 1   │   Phase 2   │  gain  │ improve\n");
-    printf("───────────────────────┼─────────────┼─────────────┼────────┼──────────\n");
-    
-    uint32_t total_p1 = 0, total_p2 = 0;
-    int all_ok = 1;
-    int abort_on_error = 0;
-    
-    for (size_t i = 0; i < num_tests; i++) {
-        gen_data(data, tests[i].size);
+    printf("[OK] DMA probe passed\n");
 
-        int match = 0;
-        keccak_dma_result_t verify_ret = verify(data, tests[i].size, tests[i].domain, &keccak, &match);
-        if (verify_ret != kKeccakDmaOk) {
-            printf("%-23s │ [ERROR verify=%d]\n", tests[i].name, (int)verify_ret);
-            all_ok = 0;
-            abort_on_error = 1;
-            break;
-        }
-        
+    hqc_phase2_shake_backend_init(&keccak, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
+    printf("[OK] Backend init done\n\n");
+    printf("[DBG] before L1 test loop\n");
+
+    fill_pattern(g_g_input, sizeof(g_g_input), 0x35u);
+    fill_pattern(g_k_input, sizeof(g_k_input), 0x5au);
+
+    /* G-domain input semantics: m || pk || salt */
+    fill_pattern(g_g_input, VEC_K_SIZE_BYTES, 0x11u);
+    fill_pattern(g_g_input + VEC_K_SIZE_BYTES, PUBLIC_KEY_BYTES, 0x22u);
+    fill_pattern(g_g_input + VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES, SALT_SIZE_BYTES, 0x33u);
+
+    /* K-domain input semantics: m || u || v */
+    fill_pattern(g_k_input, VEC_K_SIZE_BYTES, 0x44u);
+    fill_pattern(g_k_input + VEC_K_SIZE_BYTES, VEC_N_SIZE_BYTES, 0x55u);
+    fill_pattern(g_k_input + VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES, VEC_N1N2_SIZE_BYTES, 0x66u);
+
+    static uint8_t edge_136[136];
+    static uint8_t edge_137[137];
+    static uint8_t edge_544[544];
+    fill_pattern(edge_136, sizeof(edge_136), 0x80u);
+    fill_pattern(edge_137, sizeof(edge_137), 0x90u);
+    fill_pattern(edge_544, sizeof(edge_544), 0xa0u);
+
+    l1_case_t cases[] = {
+        {"G_domain_full", g_g_input, sizeof(g_g_input), G_FCT_DOMAIN},
+        {"K_domain_full", g_k_input, sizeof(g_k_input), K_FCT_DOMAIN},
+        {"edge_136_1blk", edge_136, sizeof(edge_136), G_FCT_DOMAIN},
+        {"edge_137_cross", edge_137, sizeof(edge_137), G_FCT_DOMAIN},
+        {"edge_544_multi", edge_544, sizeof(edge_544), K_FCT_DOMAIN},
+    };
+
+    int all_ok = 1;
+    uint32_t total_p1 = 0;
+    uint32_t total_p2 = 0;
+    uint64_t total_keccak_p1 = 0;
+    uint64_t total_keccak_p2 = 0;
+    uint32_t total_calls_p1 = 0;
+    uint32_t total_calls_p2 = 0;
+
+    printf("case                 │  P1 cycle │  P2 cycle │   gain(P1-P2) │ improve │ match\n");
+    printf("─────────────────────┼───────────┼───────────┼───────────────┼─────────┼──────\n");
+
+    for (size_t i = 0; i < (sizeof(cases) / sizeof(cases[0])); ++i) {
+        printf("[DBG] case=%s len=%u domain=%u\n", cases[i].name, (unsigned)cases[i].inlen, (unsigned)cases[i].domain);
+        run_stats_t p1 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P1,
+                                        cases[i].input, cases[i].inlen, cases[i].domain, g_out_p1);
+        run_stats_t p2 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P2,
+                                        cases[i].input, cases[i].inlen, cases[i].domain, g_out_p2);
+        int match = (memcmp(g_out_p1, g_out_p2, SHAKE256_512_BYTES) == 0);
+        print_row(cases[i].name, p1.cycles, p2.cycles, match);
+
         if (!match) {
-            printf("%-23s │ [MISMATCH]\n", tests[i].name);
             all_ok = 0;
-            continue;
         }
-        
-        uint32_t p1 = 0;
-        uint32_t p2 = 0;
-        keccak_dma_result_t p1_ret = bench_p1(data, tests[i].size, tests[i].domain, &keccak, &p1);
-        if (p1_ret != kKeccakDmaOk) {
-            printf("%-23s │ [ERROR p1=%d]\n", tests[i].name, (int)p1_ret);
-            all_ok = 0;
-            abort_on_error = 1;
-            break;
-        }
-        keccak_dma_result_t p2_ret = bench_p2(data, tests[i].size, tests[i].domain, &keccak, &p2);
-        if (p2_ret != kKeccakDmaOk) {
-            printf("%-23s │ [ERROR p2=%d]\n", tests[i].name, (int)p2_ret);
-            all_ok = 0;
-            abort_on_error = 1;
-            break;
-        }
-        
-        total_p1 += p1;
-        total_p2 += p2;
-        
-        int32_t gain = (int32_t)p1 - (int32_t)p2;
-        float imp = (gain > 0) ? (100.0f * gain / p1) : 0.0f;
-        
-        printf("%-23s │ %11u │ %11u │ %+6d │ %6.1f%%\n",
-               tests[i].name, p1, p2, gain, imp);
+        total_p1 += p1.cycles;
+        total_p2 += p2.cycles;
+        total_keccak_p1 += p1.keccak_cycles;
+        total_keccak_p2 += p2.keccak_cycles;
+        total_calls_p1 += p1.keccak_calls;
+        total_calls_p2 += p2.keccak_calls;
     }
-    
-    printf("───────────────────────┼─────────────┼─────────────┼────────┼──────────\n");
-    uint32_t total_gain = (uint32_t)((int32_t)total_p1 - (int32_t)total_p2);
-    float total_imp = (total_p1 > 0) ? (100.0f * total_gain / total_p1) : 0.0f;
-    printf("%-23s │ %11u │ %11u │ %+6u │ %6.1f%%\n",
-           "TOTAL", total_p1, total_p2, total_gain, total_imp);
-    printf("═══════════════════════╧═════════════╧═════════════╧════════╧══════════\n\n");
-    
-    printf("[RESULT] Correctness: %s\n", all_ok ? "PASS" : "FAIL");
-    printf("[RESULT] Overall improvement: %.1f%% (%u cycles saved)\n", total_imp, total_gain);
-    printf("[INFO] Exit code: %d\n", (all_ok && !abort_on_error) ? 0 : 1);
-    
-    return (all_ok && !abort_on_error) ? 0 : 1;
+
+    printf("─────────────────────┼───────────┼───────────┼───────────────┼─────────┼──────\n");
+    print_row("TOTAL", total_p1, total_p2, all_ok);
+    printf("═════════════════════╧═══════════╧═══════════╧═══════════════╧═════════╧══════\n\n");
+
+    printf("[KECCAK] P1: %u calls, 0x%08x%08x cycles\n",
+           total_calls_p1,
+           (unsigned)((total_keccak_p1 >> 32) & 0xffffffffu),
+           (unsigned)(total_keccak_p1 & 0xffffffffu));
+    printf("[KECCAK] P2: %u calls, 0x%08x%08x cycles\n",
+           total_calls_p2,
+           (unsigned)((total_keccak_p2 >> 32) & 0xffffffffu),
+           (unsigned)(total_keccak_p2 & 0xffffffffu));
+    printf("[CHECK] P1/P2 bit-exact consistency: %s\n", all_ok ? "PASS" : "FAIL");
+    printf("[CHECK] Sanity path covered: G(m||pk||salt) + K(m||u||v)\n");
+    printf("[INFO] Exit code: %d\n", all_ok ? 0 : 1);
+    return all_ok ? 0 : 1;
 }
