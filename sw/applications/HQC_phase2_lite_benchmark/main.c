@@ -8,6 +8,8 @@
 #include "csr_registers.h"
 #include "hqc_port/fips202.h"
 #include "hqc_port/hqc_phase2_shake_backend.h"
+#include "keccak_sponge_hqc128.h"
+#include "keccak_sponge_hqc128_optimized.h"
 #include "../HQC/src/shake_ds.h"
 #include "../HQC/src/domains.h"
 #include "../HQC/src/parameters.h"
@@ -22,14 +24,19 @@ static uint32_t g_keccak_dma_out_words[KECCAK_DMA_BLOCK_BYTES / sizeof(uint32_t)
 
 static uint8_t g_out_p1[SHAKE256_512_BYTES];
 static uint8_t g_out_p2[SHAKE256_512_BYTES];
+static uint8_t g_out_var_p1[544];
+static uint8_t g_out_var_p2[544];
 static uint8_t g_g_input[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES];
 static uint8_t g_k_input[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES];
+static keccak_dma_t *g_keccak_ptr = NULL;
 
 typedef struct {
     const char *name;
     const uint8_t *input;
     size_t inlen;
     uint8_t domain;
+    size_t outlen;
+    int use_incremental;
 } l1_case_t;
 
 typedef struct {
@@ -73,13 +80,59 @@ static run_stats_t run_shake_case(hqc_phase2_shake_backend_t backend,
     return stats;
 }
 
-static void u64_to_hex16(uint64_t value, char out[17]) {
-    static const char kHex[] = "0123456789abcdef";
-    for (int i = 15; i >= 0; --i) {
-        out[i] = kHex[(unsigned)(value & 0xfull)];
-        value >>= 4;
+static run_stats_t run_shake_case_incremental(hqc_phase2_shake_backend_t backend,
+                                              const uint8_t *input,
+                                              size_t inlen,
+                                              uint8_t domain,
+                                              size_t outlen,
+                                              uint8_t *out) {
+    run_stats_t stats = {0};
+    hqc_phase2_set_shake_backend(backend);
+    hqc_keccak_profile_reset();
+    uint32_t start = read_cycles();
+    keccak_dma_result_t ret;
+
+    if (backend == HQC_PHASE2_SHAKE_BACKEND_P2) {
+        keccak_sponge_opt_ctx_t ctx;
+        ret = keccak_sponge_init_opt(&ctx, g_keccak_ptr, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
+        if (ret == kKeccakDmaOk) {
+            ret = keccak_sponge_absorb_opt(&ctx, input, inlen);
+        }
+        if (ret == kKeccakDmaOk) {
+            ret = keccak_sponge_finalize_opt(&ctx, domain);
+        }
+        if (ret == kKeccakDmaOk) {
+            ret = keccak_sponge_squeeze_opt(&ctx, out, outlen);
+        }
+    } else {
+        keccak_sponge_hqc128_ctx_t ctx;
+        ret = keccak_sponge_init(&ctx, g_keccak_ptr, KECCAK_STATE_ADDR, KECCAK_OUTPUT_ADDR);
+        if (ret == kKeccakDmaOk) {
+            ret = keccak_sponge_absorb(&ctx, input, inlen);
+        }
+        if (ret == kKeccakDmaOk) {
+            ret = keccak_sponge_finalize(&ctx, domain);
+        }
+        if (ret == kKeccakDmaOk) {
+            ret = keccak_sponge_squeeze(&ctx, out, outlen);
+        }
     }
-    out[16] = '\0';
+
+    if (ret != kKeccakDmaOk) {
+        /* Keep fallback behavior consistent with shake_ds.c */
+        shake256incctx state;
+        shake256_inc_init(&state);
+        shake256_inc_absorb(&state, input, inlen);
+        shake256_inc_absorb(&state, &domain, 1);
+        shake256_inc_finalize(&state);
+        shake256_inc_squeeze(out, outlen, &state);
+        shake256_inc_ctx_release(&state);
+    }
+
+    stats.cycles = read_cycles() - start;
+    stats.keccak_cycles = hqc_keccak_profile_get_cycles();
+    stats.keccak_calls = hqc_keccak_profile_get_calls();
+    return stats;
 }
 
 static void u64_to_dec(uint64_t value, char out[21]) {
@@ -123,6 +176,7 @@ int main(void) {
     keccak_dma_t keccak;
     printf("[DBG] before keccak_dma_init\n");
     keccak_dma_init(&keccak, KECCAK_DMA_START_ADDRESS);
+    g_keccak_ptr = &keccak;
     printf("[OK] Keccak DMA initialized\n");
 
     int all_ok = 1;
@@ -174,11 +228,16 @@ int main(void) {
     fill_pattern(edge_544, sizeof(edge_544), 0xa0u);
 
     l1_case_t cases[] = {
-        {"G_domain_full", g_g_input, sizeof(g_g_input), G_FCT_DOMAIN},
-        {"K_domain_full", g_k_input, sizeof(g_k_input), K_FCT_DOMAIN},
-        {"edge_136_1blk", edge_136, sizeof(edge_136), G_FCT_DOMAIN},
-        {"edge_137_cross", edge_137, sizeof(edge_137), G_FCT_DOMAIN},
-        {"edge_544_multi", edge_544, sizeof(edge_544), K_FCT_DOMAIN},
+        {"G_domain_full_ds64", g_g_input, sizeof(g_g_input), G_FCT_DOMAIN, SHAKE256_512_BYTES, 0},
+        {"K_domain_full_ds64", g_k_input, sizeof(g_k_input), K_FCT_DOMAIN, SHAKE256_512_BYTES, 0},
+        {"edge_136_ds64", edge_136, sizeof(edge_136), G_FCT_DOMAIN, SHAKE256_512_BYTES, 0},
+        {"edge_137_ds64", edge_137, sizeof(edge_137), G_FCT_DOMAIN, SHAKE256_512_BYTES, 0},
+        {"edge_544_ds64", edge_544, sizeof(edge_544), K_FCT_DOMAIN, SHAKE256_512_BYTES, 0},
+        {"sq_g_64", g_g_input, sizeof(g_g_input), G_FCT_DOMAIN, 64, 1},
+        {"sq_g_136", g_g_input, sizeof(g_g_input), G_FCT_DOMAIN, 136, 1},
+        {"sq_g_137", g_g_input, sizeof(g_g_input), G_FCT_DOMAIN, 137, 1},
+        {"sq_k_272", g_k_input, sizeof(g_k_input), K_FCT_DOMAIN, 272, 1},
+        {"sq_k_544", g_k_input, sizeof(g_k_input), K_FCT_DOMAIN, 544, 1},
     };
 
     uint8_t fallback_p1[SHAKE256_512_BYTES];
@@ -186,9 +245,9 @@ int main(void) {
 
     /* Fallback test #1: uninitialized backend context (g_keccak == NULL). */
     run_stats_t preinit_p1 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P1,
-                                            cases[0].input, cases[0].inlen, cases[0].domain, fallback_p1);
+                                            edge_136, sizeof(edge_136), G_FCT_DOMAIN, fallback_p1);
     run_stats_t preinit_p2 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P2,
-                                            cases[0].input, cases[0].inlen, cases[0].domain, fallback_p2);
+                                            edge_136, sizeof(edge_136), G_FCT_DOMAIN, fallback_p2);
     int fallback_uninit_match = (memcmp(fallback_p1, fallback_p2, SHAKE256_512_BYTES) == 0);
     int fallback_uninit_alive = (preinit_p1.cycles > 0u && preinit_p2.cycles > 0u);
     printf("[CHECK] fallback(uninitialized backend): %s\n",
@@ -200,9 +259,9 @@ int main(void) {
     /* Fallback test #2: force misaligned addresses. */
     hqc_phase2_shake_backend_init(&keccak, KECCAK_STATE_ADDR + 1u, KECCAK_OUTPUT_ADDR + 1u);
     run_stats_t misalign_p1 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P1,
-                                             cases[1].input, cases[1].inlen, cases[1].domain, fallback_p1);
+                                             edge_136, sizeof(edge_136), G_FCT_DOMAIN, fallback_p1);
     run_stats_t misalign_p2 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P2,
-                                             cases[1].input, cases[1].inlen, cases[1].domain, fallback_p2);
+                                             edge_136, sizeof(edge_136), G_FCT_DOMAIN, fallback_p2);
     int fallback_misalign_match = (memcmp(fallback_p1, fallback_p2, SHAKE256_512_BYTES) == 0);
     int fallback_misalign_alive = (misalign_p1.cycles > 0u && misalign_p2.cycles > 0u);
     printf("[CHECK] fallback(misaligned addr): %s\n",
@@ -227,11 +286,24 @@ int main(void) {
     printf("─────────────────────┼───────────┼───────────┼───────────────┼─────────┼──────\n");
 
     for (size_t i = 0; i < (sizeof(cases) / sizeof(cases[0])); ++i) {
-        printf("[DBG] case=%s len=%u domain=%u\n", cases[i].name, (unsigned)cases[i].inlen, (unsigned)cases[i].domain);
-        run_stats_t p1 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P1,
-                                        cases[i].input, cases[i].inlen, cases[i].domain, g_out_p1);
-        run_stats_t p2 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P2,
-                                        cases[i].input, cases[i].inlen, cases[i].domain, g_out_p2);
+        printf("[DBG] case=%s in=%u out=%u domain=%u mode=%s\n",
+               cases[i].name, (unsigned)cases[i].inlen, (unsigned)cases[i].outlen,
+               (unsigned)cases[i].domain, cases[i].use_incremental ? "inc" : "ds64");
+        run_stats_t p1;
+        run_stats_t p2;
+        if (cases[i].use_incremental) {
+            p1 = run_shake_case_incremental(HQC_PHASE2_SHAKE_BACKEND_P1,
+                                            cases[i].input, cases[i].inlen, cases[i].domain,
+                                            cases[i].outlen, g_out_var_p1);
+            p2 = run_shake_case_incremental(HQC_PHASE2_SHAKE_BACKEND_P2,
+                                            cases[i].input, cases[i].inlen, cases[i].domain,
+                                            cases[i].outlen, g_out_var_p2);
+        } else {
+            p1 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P1,
+                                cases[i].input, cases[i].inlen, cases[i].domain, g_out_p1);
+            p2 = run_shake_case(HQC_PHASE2_SHAKE_BACKEND_P2,
+                                cases[i].input, cases[i].inlen, cases[i].domain, g_out_p2);
+        }
 
         // In the DMA sponge quick-regression path, fips202 profile counters may
         // stay zero because shake_ds bypasses the fips202 permutation hook.
@@ -245,7 +317,12 @@ int main(void) {
             p2.keccak_cycles = p2.cycles;
         }
 
-        int match = (memcmp(g_out_p1, g_out_p2, SHAKE256_512_BYTES) == 0);
+        int match = 0;
+        if (cases[i].use_incremental) {
+            match = (memcmp(g_out_var_p1, g_out_var_p2, cases[i].outlen) == 0);
+        } else {
+            match = (memcmp(g_out_p1, g_out_p2, SHAKE256_512_BYTES) == 0);
+        }
         print_row(cases[i].name, p1.cycles, p2.cycles, match);
 
         if (!match) {
