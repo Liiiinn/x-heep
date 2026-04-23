@@ -42,7 +42,7 @@ filesets:
 
   ip-fpga-cw305:
     files:
-    - scripts/nexys/xilinx_generate_clk_wizard.tcl
+    - scripts/cw305/xilinx_generate_clk_wizard.tcl
     file_type: tclSource
 
   ip-fpga-zcu104:

@@ -139,7 +139,7 @@ module xilinx_core_v_mini_mcu_wrapper
   );
 `elsif FPGA_CW305
   xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
-      .clk_100MHz(clk_i),
+      .clk_50MHz(clk_i),
       .clk_out1_0(clk_gen)
   );
 `else  // FPGA PYNQ-Z2

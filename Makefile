@@ -275,15 +275,15 @@ questasim-run-opt-app: app
 ## @param FPGA_BOARD=pynq-z2,nexys-a7-100t,cw305,genesys2,aup-zu3,zcu102,zcu104
 ## @param FUSESOC_FLAGS=--flag=<flagname>
 vivado-fpga:
-	$(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) --build openhwgroup.org:systems:core-v-mini-mcu $(FUSESOC_PARAM) 2>&1 | tee buildvivado.log
+	LC_ALL=C.UTF-8 LANG=C.UTF-8 $(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) --build openhwgroup.org:systems:core-v-mini-mcu $(FUSESOC_PARAM) 2>&1 | tee buildvivado.log
 
 vivado-fpga-nobuild:
-	$(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) --setup openhwgroup.org:systems:core-v-mini-mcu $(FUSESOC_PARAM) 2>&1 | tee buildvivado.log
+	LC_ALL=C.UTF-8 LANG=C.UTF-8 $(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) --setup openhwgroup.org:systems:core-v-mini-mcu $(FUSESOC_PARAM) 2>&1 | tee buildvivado.log
 
 ## Loads the generated bitstream into the FPGA
 ## @param FPGA_BOARD=pynq-z2,nexys-a7-100t,cw305,genesys2,aup-zu3,zcu102,zcu104
 vivado-fpga-pgm:
-	$(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) --run openhwgroup.org:systems:core-v-mini-mcu $(FUSESOC_PARAM) 2>&1 | tee programfpga.log
+	LC_ALL=C.UTF-8 LANG=C.UTF-8 $(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) --run openhwgroup.org:systems:core-v-mini-mcu $(FUSESOC_PARAM) 2>&1 | tee programfpga.log
 
 ## @section ASIC
 ## Note that for this step you need to provide technology-dependent files (e.g., libs, constraints)
