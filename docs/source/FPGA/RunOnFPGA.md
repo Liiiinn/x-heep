@@ -10,6 +10,7 @@ The following FPGA boards are supported:
 | Vendor      | Board                                                                                                                              | BOARD_NAME    |
 |-------------|------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | TUL         | [Pynq-Z2](https://www.amd.com/en/corporate/university-program/aup-boards/pynq-z2.html)                                             | pynq-z2       |
+| NewAE       | [ChipWhisperer CW305](https://rtfm.newae.com/Targets/CW305%20Artix%20FPGA/)                                                          | cw305         |
 | AMD         | [Zynq™ UltraScale+™ MPSoC ZCU104](https://www.amd.com/en/products/adaptive-socs-and-fpgas/evaluation-boards/zcu104.html)           | zcu104        |
 | AMD         | [Zynq™ UltraScale+™ MPSoC ZCU102](https://www.amd.com/en/products/adaptive-socs-and-fpgas/evaluation-boards/ek-u1-zcu102-g.html)   | zcu102        |
 | Digilent    | [Nexys-A7-100t](https://digilent.com/reference/programmable-logic/nexys-a7/start)                                                  | nexys-a7-100t |
@@ -53,6 +54,22 @@ open --> Hardware Manager --> Open Target --> Autoconnect --> Program Device
 
 and choose the file `openhwgroup.org_systems_core-v-mini-mcu_<version>.bit` in the `build/openhwgroup.org_systems_core-v-mini-mcu_<version>/<BOARD_NAME>-vivado`.
 
+For `cw305`, the minimal bring-up constraints map only:
+
+- `clk_i` <- `pll_clk1` (`N13`)
+- `rst_i` <- `reset_pin_n` (`R1`, active low)
+- `uart_tx_o` -> `P16`
+- `uart_rx_i` <- `R16`
+- `gpio_io[0]` -> `T14` (measurement trigger)
+
+Other top-level IOs are intentionally left unconstrained in the first migration stage.
+
+CW305 clock policy for this target:
+
+- board clock input (`pll_clk1` on `N13`) is treated as 50MHz
+- system clock runs at 50MHz
+- software side uses `REFERENCE_CLOCK_Hz=50MHz` (for UART NCO and timing consistency)
+
 Or simply type:
 
 ```
@@ -84,6 +101,30 @@ Both the JTAG, UART and SPI interfaces are mapped to be compliant with the [ESL 
 To interface with the jtag one can use [openocd](http://openocd.org/), to interface with the UART one can use [picocom](https://linux.die.net/man/8/picocom), and to interface with the SPI flash one can use iceprog (from the [icestorm](http://www.clifford.at/icestorm/) project) already shipped and built in X-HEEP main repo.
 
 Check the [Debug](./../How_to/Debug.md) and [ExecuteFromFlash](./../How_to/ExecuteFromFlash.md) guides for more details.
+
+### CW305 first-stage validation flow
+
+1. Build the FPGA design:
+
+```
+make vivado-fpga FPGA_BOARD=cw305
+```
+
+2. Build firmware:
+
+```
+make app PROJECT=hello_world TARGET=cw305
+```
+
+3. Program the bitstream manually in Vivado Hardware Manager, then load firmware using your usual JTAG flow.
+
+4. Capture UART:
+
+```
+picocom -b 9600 -r -l --imap lfcrlf /dev/ttyUSBX | tee cw305_uart.log
+```
+
+5. Repeat `hello_world` boot 3 times and confirm stable UART output before moving to HQC apps.
 
 ## FPGA Utilizations
 
