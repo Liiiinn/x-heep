@@ -83,6 +83,8 @@ module xilinx_core_v_mini_mcu_wrapper
   // low active reset
 `ifdef FPGA_NEXYS
   assign rst_n = rst_i;
+`elsif FPGA_CW305
+  assign rst_n = rst_i;
 `elsif FPGA_GENESYS2
   assign rst_n = rst_i;
 `else
@@ -131,6 +133,11 @@ module xilinx_core_v_mini_mcu_wrapper
       .clk_out1_0(clk_gen)
   );
 `elsif FPGA_NEXYS
+  xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
+      .clk_100MHz(clk_i),
+      .clk_out1_0(clk_gen)
+  );
+`elsif FPGA_CW305
   xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
       .clk_100MHz(clk_i),
       .clk_out1_0(clk_gen)

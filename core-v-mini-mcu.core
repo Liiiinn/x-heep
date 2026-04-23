@@ -233,6 +233,10 @@ parameters:
     datatype: bool
     paramtype: vlogdefine
     default: false
+  FPGA_CW305:
+    datatype: bool
+    paramtype: vlogdefine
+    default: false
   FPGA_ZCU104:
     datatype: bool
     paramtype: vlogdefine
@@ -458,6 +462,23 @@ targets:
         part: xc7a100tcsg324-1
         board_part: digilentinc.com:nexys-a7-100t:part0:1.3
         board_repo_paths: [../../../hw/fpga/board_files/vendor/esl_epfl_nexys_a7_100t_board_files]
+    toplevel: [xilinx_core_v_mini_mcu_wrapper]
+
+  cw305:
+    <<: *default_target
+    default_tool: vivado
+    description: ChipWhisperer CW305 Board
+    filesets_append:
+    - x_heep_system
+    - rtl-fpga
+    parameters:
+    - SYNTHESIS=true
+    - REMOVE_OBI_FIFO
+    - FPGA_SYNTHESIS=true
+    - FPGA_CW305=true
+    tools:
+      vivado:
+        part: xc7a100tftg256-1
     toplevel: [xilinx_core_v_mini_mcu_wrapper]
 
   pynq-z2:
