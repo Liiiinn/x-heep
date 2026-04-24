@@ -1,3 +1,5 @@
+import common::*;
+
 module keccak_data (
     input clk,
     input rst_n,
@@ -7,7 +9,6 @@ module keccak_data (
     output [1599:0] Dout
 );
 
-    import common::*;
     k_state reg_data, round_in, round_out;
     logic [4:0] counter_rounds;
     logic [LANE-1:0] round_constant_signal;

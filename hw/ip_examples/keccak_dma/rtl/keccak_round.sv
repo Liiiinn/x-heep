@@ -1,10 +1,11 @@
+import common::*;
+
 module keccak_round (
     input k_state Round_in,
     input [LANE - 1:0] Round_constant_signal,
     output k_state Round_out
 );
 
-    import common::*;
     k_state theta_in, theta_out;
     k_state rho_in, rho_out;
     k_state pi_in, pi_out;
@@ -24,21 +25,21 @@ module keccak_round (
 
     // Theta
     generate
-        for (x = 0; x <= 4; x++)
-            for (i = 0; i <= LANE - 1; i++)
-                assign sum_sheet[x][i] = theta_in[0][x][i] ^ theta_in[1][x][i] ^ theta_in[2][x][i] ^ theta_in[3][x][i] ^ theta_in[4][x][i];
+    for (x = 0; x <= 4; x++)
+        for (i = 0; i <= LANE - 1; i++)
+            assign sum_sheet[x][i] = theta_in[0][x][i] ^ theta_in[1][x][i] ^ theta_in[2][x][i] ^ theta_in[3][x][i] ^ theta_in[4][x][i];
     endgenerate
 
     generate
-        for (y = 0; y <= 4; y++) begin : loop_y
-            for (x = 0; x <= 4; x++) begin : loop_x
-                for (i = 0; i <= LANE - 1; i++) begin : loop_i
-                    assign theta_out[y][x][i] = theta_in[y][x][i] ^ 
-                                                    sum_sheet[(x + 4) % 5][i] ^ 
-                                                    sum_sheet[(x + 1) % 5][(i + LANE - 1) % LANE];
-                    end
+    for (y = 0; y <= 4; y++) begin : loop_y
+        for (x = 0; x <= 4; x++) begin : loop_x
+            for (i = 0; i <= LANE - 1; i++) begin : loop_i
+                assign theta_out[y][x][i] = theta_in[y][x][i] ^ 
+                                                        sum_sheet[(x + 4) % 5][i] ^ 
+                                                        sum_sheet[(x + 1) % 5][(i + LANE - 1) % LANE];
             end
         end
+    end
     endgenerate
 
     // Rho
@@ -80,8 +81,7 @@ module keccak_round (
     generate
         for (y = 0; y <= 4; y++)
             for (x = 0; x <= 4; x++)
-                for (i = 0; i <= LANE - 1; i++) 
-                    assign pi_out[(2*x+3*y)%5][0*x+1*y][i] = pi_in[y][x][i];
+                for (i = 0; i <= LANE - 1; i++) assign pi_out[(2*x+3*y)%5][0*x+1*y][i] = pi_in[y][x][i];
     endgenerate
 
     // Chi
@@ -94,9 +94,9 @@ module keccak_round (
 
     // Iota
     generate
-        for (y = 0; y <= 4; y++)
-            for (x = 0; x <= 4; x++)
-                for (i = 0; i <= LANE - 1; i++)
-                    assign iota_out[y][x][i] = (y == 0 && x == 0) ? (iota_in[y][x][i] ^ Round_constant_signal[i]) : iota_in[y][x][i];
+    for (y = 0; y <= 4; y++)
+        for (x = 0; x <= 4; x++)
+            for (i = 0; i <= LANE - 1; i++)
+                assign iota_out[y][x][i] = (y == 0 && x == 0) ? (iota_in[y][x][i] ^ Round_constant_signal[i]) : iota_in[y][x][i];
     endgenerate
 endmodule

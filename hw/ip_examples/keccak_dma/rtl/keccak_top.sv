@@ -1,3 +1,5 @@
+import keccak_reg_pkg::*;
+
 module keccak_top #(
     parameter type reg_req_t = logic,
     parameter type reg_rsp_t = logic
@@ -19,8 +21,6 @@ module keccak_top #(
 
     output logic intr_o
 );
-
-    import keccak_reg_pkg::*;
 
     keccak_reg2hw_t reg2hw;
     keccak_hw2reg_t hw2reg;

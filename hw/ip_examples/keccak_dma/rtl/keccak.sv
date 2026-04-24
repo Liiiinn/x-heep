@@ -1,3 +1,5 @@
+import common::*;
+
 module keccak (
     input logic clk,
     input logic rst_n,
@@ -24,8 +26,6 @@ module keccak (
     input  logic        obi_rvalid_i,
     input  logic [31:0] obi_rdata_i
 );
-
-    import common::*;
 
     localparam int unsigned DMA_WORD_BYTES = 4;
     localparam int unsigned KECCAK_BLOCK_WORDS = 50;
