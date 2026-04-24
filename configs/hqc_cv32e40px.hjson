@@ -2,7 +2,7 @@
     bus_type: "onetoM"
     ram_banks: {
         code_and_data: {
-            num: 8
+            num: 5
             sizes: [32]
         }
     }
@@ -79,7 +79,7 @@
             subaddr_mode_en: "yes"
             hw_fifo_mode_en: "yes"
             zero_padding_en: "yes"
-            is_included: "yes"
+            is_included: "no"
         }
         power_manager: {
             offset:  0x00040000

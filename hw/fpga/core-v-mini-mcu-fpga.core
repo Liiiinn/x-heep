@@ -19,8 +19,6 @@ filesets:
     files:
     - scripts/generate_sram.tcl:  { file_type: tclSource }
     - prim_xilinx_clk.sv
-    - cv32e40p_xilinx_clock_gate.sv
-    - cv32e40x_xilinx_clock_gate.sv
     - cve2_xilinx_clock_gate.sv
     - cv32e40px_xilinx_clock_gate.sv
     - pad_cell_input_xilinx.sv

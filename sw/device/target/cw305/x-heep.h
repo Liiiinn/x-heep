@@ -7,7 +7,7 @@
 extern "C" {
 #endif  // __cplusplus
 
-#define REFERENCE_CLOCK_Hz (50*1000*1000) // 50 MHz for CW305 system clock
+#define REFERENCE_CLOCK_Hz (40*1000*1000) // 40 MHz for CW305 system clock
 #define UART_BAUDRATE 9600
 // Calculation formula: NCO = 16 * 2^nco_width * baud / fclk.
 // Note that this will be calculated at compile time, so no 64-bit operations will be performed in CPU.

@@ -24,7 +24,7 @@ module xilinx_core_v_mini_mcu_wrapper
 `else
     inout logic clk_i,
 `endif
-    inout logic rst_i,
+    input logic rst_i,
 
     output logic rst_led_o,
     output logic clk_led_o,
@@ -139,7 +139,7 @@ module xilinx_core_v_mini_mcu_wrapper
   );
 `elsif FPGA_CW305
   xilinx_clk_wizard_wrapper xilinx_clk_wizard_wrapper_i (
-      .clk_50MHz(clk_i),
+      .clk_40MHz (clk_i),
       .clk_out1_0(clk_gen)
   );
 `else  // FPGA PYNQ-Z2
@@ -149,7 +149,17 @@ module xilinx_core_v_mini_mcu_wrapper
   );
 `endif
 
-  x_heep_system x_heep_system_i (
+  // CW305: enable Keccak DMA as external master port 4 (EXT_XBAR_NMASTER > 4).
+  // Other FPGA targets keep the default of 0 external masters.
+`ifdef FPGA_CW305
+  localparam int unsigned XHEEP_EXT_XBAR_NMASTER = 5;
+`else
+  localparam int unsigned XHEEP_EXT_XBAR_NMASTER = 0;
+`endif
+
+  x_heep_system #(
+      .EXT_XBAR_NMASTER(XHEEP_EXT_XBAR_NMASTER)
+  ) x_heep_system_i (
       .hart_id_i('0),
       .xheep_instance_id_i('0),
       .intr_vector_ext_i('0),
