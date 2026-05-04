@@ -110,6 +110,19 @@ filesets:
     - hw/fpga/xilinx_core_v_mini_mcu_wrapper.sv
     file_type: systemVerilogSource
 
+  keccak-dma-rtl:
+    files:
+    - hw/ip_examples/keccak_dma/rtl/common.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_reg_pkg.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_reg_top.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_round_constants.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_round.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_data.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_top.sv
+    - hw/ip_examples/keccak_dma/rtl/keccak_dma_wrapper.sv
+    file_type: systemVerilogSource
+
   ip-asic:
     depend:
     - technology::prim_mytech
@@ -471,6 +484,7 @@ targets:
     filesets_append:
     - x_heep_system
     - rtl-fpga
+    - keccak-dma-rtl
     parameters:
     - SYNTHESIS=true
     - REMOVE_OBI_FIFO

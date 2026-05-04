@@ -35,7 +35,12 @@ module xilinx_clk_mux2 (
     output logic clk_o
 );
 
-  BUFGMUX i_BUFGMUX (
+  // BUFGMUX_CTRL is used instead of BUFGMUX so that non-dedicated-clock-routed
+  // signals (e.g. an inverted TCK from a LUT inverter) may drive the inputs
+  // without triggering a Vivado TIMING-14 "LUT on clock tree" violation.
+  // BUFGMUX_CTRL accepts fabric signals on I0/I1 by design; its output still
+  // drives the global clock network.
+  BUFGMUX_CTRL i_BUFGMUX (
       .S (clk_sel_i),
       .I0(clk0_i),
       .I1(clk1_i),

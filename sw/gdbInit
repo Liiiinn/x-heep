@@ -1,5 +1,5 @@
 set remotetimeout 2000
-target extended-remote :3333
+target extended-remote 172.24.144.1:3333
 load
 i r pc
 continue

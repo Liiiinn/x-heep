@@ -14,19 +14,18 @@ catch { remove_files [get_files -quiet ${design_name}.bd] }
 create_bd_design $design_name
 
 # Create ports
+# Do NOT set FREQ_HZ on the output port; Vivado propagates the actual MMCM output
+# frequency automatically after clk_wiz propagation, avoiding BD 41-238 mismatches.
 set clk_40MHz [ create_bd_port -dir I -type clk -freq_hz [ expr $in_clk_freq_MHz * 1000000 ] clk_40MHz ]
 set clk_out1_0 [ create_bd_port -dir O -type clk clk_out1_0 ]
-set_property -dict [ list CONFIG.FREQ_HZ [ expr $out_clk_freq_MHz * 1000000 ] ] $clk_out1_0
 
 # Create instance and set properties
-# VCO = 40MHz * 20 / 1 = 800MHz (within Artix-7 range 600-1200MHz)
-# clk_out1 = 800MHz / 20 = 40MHz
+# Only set CLKOUT1_REQUESTED_OUT_FREQ; Vivado auto-computes MMCM MULT/DIVIDE.
+# (Manual MMCM_CLKFBOUT_MULT_F / MMCM_CLKOUT0_DIVIDE_F are disabled params and
+#  would be silently ignored, causing a FREQ_HZ mismatch on the output port.)
 set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0 ]
 set_property -dict [ list \
-CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {40.000} \
-CONFIG.MMCM_CLKFBOUT_MULT_F {20.000} \
-CONFIG.MMCM_CLKOUT0_DIVIDE_F {20.000} \
-CONFIG.MMCM_DIVCLK_DIVIDE {1} \
+CONFIG.CLKOUT1_REQUESTED_OUT_FREQ $out_clk_freq_MHz \
 CONFIG.PRIM_IN_FREQ $in_clk_freq_MHz \
 CONFIG.USE_LOCKED {false} \
 CONFIG.USE_RESET {false} \

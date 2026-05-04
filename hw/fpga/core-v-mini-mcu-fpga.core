@@ -36,11 +36,13 @@ filesets:
   ip-fpga-nexys:
     files:
     - scripts/nexys/xilinx_generate_clk_wizard.tcl
+    - scripts/nexys/xilinx_impl_strategy.tcl
     file_type: tclSource
 
   ip-fpga-cw305:
     files:
     - scripts/cw305/xilinx_generate_clk_wizard.tcl
+    - scripts/cw305/xilinx_impl_strategy.tcl
     file_type: tclSource
 
   ip-fpga-zcu104:

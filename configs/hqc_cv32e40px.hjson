@@ -115,32 +115,32 @@
         rv_plic: {
             offset:  0x00000000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         spi_host: {
             offset:  0x00010000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         gpio: {
             offset:  0x00020000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         i2c: {
             offset:  0x00030000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         rv_timer: {
             offset:  0x00040000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         spi2: {
             offset:  0x00050000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         pdm2pcm: {
             offset:  0x00060000
@@ -151,7 +151,7 @@
         i2s: {
             offset:  0x00070000
             length:  0x00010000
-            is_included: "yes"
+            is_included: "no"
         }
         uart: {
             offset:  0x00080000
