@@ -125,10 +125,14 @@ module x_heep_system
 
   localparam EXT_HARTS = 0;
   localparam int unsigned KECCAK_DMA_EXT_MASTER_IDX = 4;
+  localparam int unsigned KECCAK_SPONGE_DMA_EXT_MASTER_IDX = 5;
   localparam int unsigned KECCAK_DMA_INTR_IDX = 3;
   localparam logic [31:0] KECCAK_DMA_START_ADDRESS = core_v_mini_mcu_pkg::EXT_PERIPHERAL_START_ADDRESS + 32'h06000;
   localparam logic [31:0] KECCAK_DMA_END_ADDRESS = KECCAK_DMA_START_ADDRESS + 32'h100;
+  localparam logic [31:0] KECCAK_SPONGE_DMA_START_ADDRESS = core_v_mini_mcu_pkg::EXT_PERIPHERAL_START_ADDRESS + 32'h07000;
+  localparam logic [31:0] KECCAK_SPONGE_DMA_END_ADDRESS = KECCAK_SPONGE_DMA_START_ADDRESS + 32'h100;
   localparam bit KECCAK_DMA_HAS_MASTER_PORT = EXT_XBAR_NMASTER > KECCAK_DMA_EXT_MASTER_IDX;
+  localparam bit KECCAK_SPONGE_DMA_HAS_MASTER_PORT = EXT_XBAR_NMASTER > KECCAK_SPONGE_DMA_EXT_MASTER_IDX;
 
   //do not touch these parameter
   localparam EXT_HARTS_RND = EXT_HARTS == 0 ? 1 : EXT_HARTS;
@@ -138,16 +142,21 @@ module x_heep_system
   logic ext_debug_reset_n;
   logic [NEXT_INT_RND-1:0] intr_vector_ext;
   logic keccak_intr;
+  logic keccak_sponge_intr;
 
   reg_req_t ext_peripheral_slave_req;
   reg_rsp_t ext_peripheral_slave_resp;
   reg_req_t keccak_reg_req;
   reg_rsp_t keccak_reg_rsp;
+  reg_req_t keccak_sponge_reg_req;
+  reg_rsp_t keccak_sponge_reg_rsp;
 
   obi_req_t  [EXT_XBAR_NMASTER_RND-1:0] ext_xbar_master_req;
   obi_resp_t [EXT_XBAR_NMASTER_RND-1:0] ext_xbar_master_resp;
   obi_req_t keccak_dma_req;
   obi_resp_t keccak_dma_resp;
+  obi_req_t keccak_sponge_dma_req;
+  obi_resp_t keccak_sponge_dma_resp;
 
   // PAD controller
   reg_req_t pad_req;
@@ -179,7 +188,7 @@ module x_heep_system
 
     for (int unsigned i = 0; i < NEXT_INT_RND; i++) begin
       if ((i == KECCAK_DMA_INTR_IDX) && (i < core_v_mini_mcu_pkg::NEXT_INT)) begin
-        intr_vector_ext[i] = intr_vector_ext_i[i] | keccak_intr;
+        intr_vector_ext[i] = intr_vector_ext_i[i] | keccak_intr | keccak_sponge_intr;
       end
     end
   end
@@ -188,6 +197,7 @@ module x_heep_system
     ext_peripheral_slave_req_o = ext_peripheral_slave_req;
     ext_peripheral_slave_resp = ext_peripheral_slave_resp_i;
     keccak_reg_req = '0;
+    keccak_sponge_reg_req = '0;
 
     if (KECCAK_DMA_HAS_MASTER_PORT && ext_peripheral_slave_req.valid &&
         (ext_peripheral_slave_req.addr >= KECCAK_DMA_START_ADDRESS) &&
@@ -195,17 +205,27 @@ module x_heep_system
       ext_peripheral_slave_req_o = '0;
       keccak_reg_req = ext_peripheral_slave_req;
       ext_peripheral_slave_resp = keccak_reg_rsp;
+    end else if (KECCAK_SPONGE_DMA_HAS_MASTER_PORT && ext_peripheral_slave_req.valid &&
+                 (ext_peripheral_slave_req.addr >= KECCAK_SPONGE_DMA_START_ADDRESS) &&
+                 (ext_peripheral_slave_req.addr < KECCAK_SPONGE_DMA_END_ADDRESS)) begin
+      ext_peripheral_slave_req_o = '0;
+      keccak_sponge_reg_req = ext_peripheral_slave_req;
+      ext_peripheral_slave_resp = keccak_sponge_reg_rsp;
     end
   end
 
   always_comb begin
     ext_xbar_master_req = ext_xbar_master_req_i;
     keccak_dma_resp = '0;
+    keccak_sponge_dma_resp = '0;
 
     for (int unsigned i = 0; i < EXT_XBAR_NMASTER_RND; i++) begin
       if (KECCAK_DMA_HAS_MASTER_PORT && (i == KECCAK_DMA_EXT_MASTER_IDX)) begin
         ext_xbar_master_req[i] = keccak_dma_req;
         keccak_dma_resp = ext_xbar_master_resp[i];
+      end else if (KECCAK_SPONGE_DMA_HAS_MASTER_PORT && (i == KECCAK_SPONGE_DMA_EXT_MASTER_IDX)) begin
+        ext_xbar_master_req[i] = keccak_sponge_dma_req;
+        keccak_sponge_dma_resp = ext_xbar_master_resp[i];
       end
     end
   end
@@ -232,6 +252,27 @@ module x_heep_system
       assign keccak_reg_rsp = '0;
       assign keccak_dma_req = '0;
       assign keccak_intr = 1'b0;
+    end
+
+    if (KECCAK_SPONGE_DMA_HAS_MASTER_PORT) begin : gen_keccak_sponge_dma_wrapper
+      keccak_sponge_dma_wrapper #(
+          .reg_req_t(reg_pkg::reg_req_t),
+          .reg_rsp_t(reg_pkg::reg_rsp_t),
+          .obi_req_t(obi_pkg::obi_req_t),
+          .obi_resp_t(obi_pkg::obi_resp_t)
+      ) keccak_sponge_dma_wrapper_i (
+          .clk_i(clk_in_x),
+          .rst_ni(rst_ngen),
+          .reg_req_i(keccak_sponge_reg_req),
+          .reg_rsp_o(keccak_sponge_reg_rsp),
+          .keccak_sponge_req_o(keccak_sponge_dma_req),
+          .keccak_sponge_resp_i(keccak_sponge_dma_resp),
+          .keccak_sponge_intr_o(keccak_sponge_intr)
+      );
+    end else begin : gen_no_keccak_sponge_dma_wrapper
+      assign keccak_sponge_reg_rsp = '0;
+      assign keccak_sponge_dma_req = '0;
+      assign keccak_sponge_intr = 1'b0;
     end
   endgenerate
 

@@ -149,10 +149,13 @@ module xilinx_core_v_mini_mcu_wrapper
   );
 `endif
 
-  // CW305: enable Keccak DMA as external master port 4 (EXT_XBAR_NMASTER > 4).
+  // CW305 and Nexys: enable raw Keccak DMA on external master port 4 and
+  // SHAKE256 sponge DMA on external master port 5.
   // Other FPGA targets keep the default of 0 external masters.
 `ifdef FPGA_CW305
-  localparam int unsigned XHEEP_EXT_XBAR_NMASTER = 5;
+  localparam int unsigned XHEEP_EXT_XBAR_NMASTER = 6;
+`elsif FPGA_NEXYS
+  localparam int unsigned XHEEP_EXT_XBAR_NMASTER = 6;
 `else
   localparam int unsigned XHEEP_EXT_XBAR_NMASTER = 0;
 `endif
