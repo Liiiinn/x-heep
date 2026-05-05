@@ -44,8 +44,7 @@ module keccak (
         logic [CNT_W-1:0] whole_words;
         begin
             whole_words = CNT_W'(byte_len[31:2]);
-            bytes_to_words = whole_words +
-                             ((byte_len[1:0] != 2'b00) ? CNT_W'(1) : CNT_W'(0));
+            bytes_to_words = whole_words + ((byte_len[1:0] != 2'b00) ? CNT_W'(1) : CNT_W'(0));
         end
     endfunction
 
@@ -196,8 +195,7 @@ module keccak (
         case (state_q)
             ST_IDLE: begin
                 if (start_i) begin
-                    if ((data_len_i != 32'h0) &&
-                        (data_len_i <= KECCAK_MAX_XFER_BYTES)) begin
+                    if ((data_len_i != 32'h0) && (data_len_i <= KECCAK_MAX_XFER_BYTES)) begin
                         latch_cfg = 1'b1;
                         cnt_clr   = 1'b1;
                         state_d   = ST_READ_XFER;
@@ -346,46 +344,46 @@ module keccak (
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-        state_q            <= ST_IDLE;
-        src_addr_q         <= 32'h0;
-        dst_addr_q         <= 32'h0;
-        byte_offset_q      <= 32'h0;
-        bytes_remaining_q  <= 32'h0;
-        chunk_bytes_q      <= 32'h0;
-        word_count_q       <= '0;
-        last_word_cnt_q    <= '0;
-        tail_bytes_q       <= 2'b00;
-        tail_mask_q        <= 32'hFFFF_FFFF;
-        last_word_be_q     <= 4'hF;
-        gnt_cnt_q          <= '0;
-        rvalid_cnt_q       <= '0;
-        outstanding_cnt_q  <= '0;
-        obi_timeout_cnt_q  <= '0;
-        core_timeout_cnt_q <= '0;
-        done_q             <= 1'b0;
-        error_q            <= 1'b0;
-        intr_q             <= 1'b0;
+            state_q            <= ST_IDLE;
+            src_addr_q         <= 32'h0;
+            dst_addr_q         <= 32'h0;
+            byte_offset_q      <= 32'h0;
+            bytes_remaining_q  <= 32'h0;
+            chunk_bytes_q      <= 32'h0;
+            word_count_q       <= '0;
+            last_word_cnt_q    <= '0;
+            tail_bytes_q       <= 2'b00;
+            tail_mask_q        <= 32'hFFFF_FFFF;
+            last_word_be_q     <= 4'hF;
+            gnt_cnt_q          <= '0;
+            rvalid_cnt_q       <= '0;
+            outstanding_cnt_q  <= '0;
+            obi_timeout_cnt_q  <= '0;
+            core_timeout_cnt_q <= '0;
+            done_q             <= 1'b0;
+            error_q            <= 1'b0;
+            intr_q             <= 1'b0;
 
-        for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
-            din_words[wi] <= 32'h0;
-        end
+            for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
+                din_words[wi] <= 32'h0;
+            end
         end else begin
             state_q <= state_d;
 
             if (latch_cfg) begin
-                src_addr_q <= src_addr_i;
-                dst_addr_q <= dst_addr_i;
-                byte_offset_q <= 32'h0;
+                src_addr_q        <= src_addr_i;
+                dst_addr_q        <= dst_addr_i;
+                byte_offset_q     <= 32'h0;
                 bytes_remaining_q <= data_len_i;
-                chunk_bytes_q <= first_chunk_bytes_i;
-                word_count_q <= first_chunk_words_i;
-                last_word_cnt_q <= first_chunk_words_i - 1'b1;
-                tail_bytes_q <= first_chunk_bytes_i[1:0];
-                tail_mask_q <= tail_word_mask(first_chunk_bytes_i[1:0]);
-                last_word_be_q <= tail_write_be(first_chunk_bytes_i[1:0]);
-                done_q     <= 1'b0;
-                error_q    <= 1'b0;
-                intr_q     <= 1'b0;
+                chunk_bytes_q     <= first_chunk_bytes_i;
+                word_count_q      <= first_chunk_words_i;
+                last_word_cnt_q   <= first_chunk_words_i - 1'b1;
+                tail_bytes_q      <= first_chunk_bytes_i[1:0];
+                tail_mask_q       <= tail_word_mask(first_chunk_bytes_i[1:0]);
+                last_word_be_q    <= tail_write_be(first_chunk_bytes_i[1:0]);
+                done_q            <= 1'b0;
+                error_q           <= 1'b0;
+                intr_q            <= 1'b0;
 
                 for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                     din_words[wi] <= 32'h0;
@@ -418,14 +416,16 @@ module keccak (
                 rvalid_cnt_q <= '0;
                 outstanding_cnt_q <= '0;
             end else begin
-                    if (cnt_gnt_inc) begin
-                        gnt_cnt_q <= gnt_cnt_q + 1'b1;
-                    end
-                    if (cnt_rvalid_inc) begin
-                        rvalid_cnt_q <= rvalid_cnt_q + 1'b1;
-                    end
+                if (cnt_gnt_inc) begin
+                    gnt_cnt_q <= gnt_cnt_q + 1'b1;
+                end
+                if (cnt_rvalid_inc) begin
+                    rvalid_cnt_q <= rvalid_cnt_q + 1'b1;
+                end
 
-                unique case ({outstanding_inc, outstanding_dec})
+                unique case ({
+                    outstanding_inc, outstanding_dec
+                })
                     2'b10:   outstanding_cnt_q <= outstanding_cnt_q + 1'b1;
                     2'b01:   outstanding_cnt_q <= outstanding_cnt_q - 1'b1;
                     default: ;
@@ -462,9 +462,9 @@ module keccak (
     // Trace support for verilator.
     initial begin
         if ($test$plusargs("trace") != 0) begin
-        $display("[%0t] Tracing to logs/vlt_dump.vcd...\n", $time);
-        $dumpfile("logs/vlt_dump.vcd");
-        $dumpvars();
+            $display("[%0t] Tracing to logs/vlt_dump.vcd...\n", $time);
+            $dumpfile("logs/vlt_dump.vcd");
+            $dumpvars();
         end
         $display("[%0t] Model running...", $time);
     end

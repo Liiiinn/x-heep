@@ -30,7 +30,7 @@ module keccak_data (
         for (y = 0; y < 5; y++) begin : g_y
             for (x = 0; x < 5; x++) begin : g_x
                 for (i = 0; i < LANE; i++) begin : g_bit
-                assign Dout[320*y+64*x+i] = reg_data[y][x][i];
+                    assign Dout[320*y+64*x+i] = reg_data[y][x][i];
                 end
             end
         end
@@ -54,16 +54,16 @@ module keccak_data (
                     permutation_computed <= 1'b0;
                     reg_data <= round_out;
                 end else begin
-                if ((counter_rounds < 24) && !permutation_computed) begin
-                    counter_rounds <= counter_rounds + 1;
-                    reg_data <= round_out;
-                end
+                    if ((counter_rounds < 24) && !permutation_computed) begin
+                        counter_rounds <= counter_rounds + 1;
+                        reg_data <= round_out;
+                    end
 
-                if (counter_rounds == 23) begin
-                    permutation_computed <= 1'b1;
-                    compute_permutation <= 1'b0;
-                    counter_rounds <= '0;
-                end
+                    if (counter_rounds == 23) begin
+                        permutation_computed <= 1'b1;
+                        compute_permutation <= 1'b0;
+                        counter_rounds <= '0;
+                    end
                 end
             end
         end
@@ -73,7 +73,7 @@ module keccak_data (
         for (y = 0; y < 5; y++) begin : g_y_in
             for (x = 0; x < 5; x++) begin : g_x_in
                 for (i = 0; i < LANE; i++) begin : g_bit_in
-                assign round_in[y][x][i] = reg_data[y][x][i] ^ (Din[320*y+64*x+i] & permutation_computed);
+                    assign round_in[y][x][i] = reg_data[y][x][i] ^ (Din[320*y+64*x+i] & permutation_computed);
                 end
             end
         end

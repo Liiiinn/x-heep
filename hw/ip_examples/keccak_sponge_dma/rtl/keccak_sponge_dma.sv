@@ -50,8 +50,7 @@ module keccak_sponge_dma (
         logic [CNT_W-1:0] whole_words;
         begin
             whole_words = CNT_W'(byte_len[31:2]);
-            bytes_to_words = whole_words +
-                             ((byte_len[1:0] != 2'b00) ? CNT_W'(1) : CNT_W'(0));
+            bytes_to_words = whole_words + ((byte_len[1:0] != 2'b00) ? CNT_W'(1) : CNT_W'(0));
         end
     endfunction
 
@@ -100,19 +99,16 @@ module keccak_sponge_dma (
     endfunction
 
     function automatic logic [31:0] pad_rate_word(
-        input int unsigned word_idx,
-        input logic [31:0] word,
-        input logic [31:0] domain_offset,
-        input logic [7:0] domain
-    );
+        input int unsigned word_idx, input logic [31:0] word, input logic [31:0] domain_offset,
+        input logic [7:0] domain);
         logic [31:0] padded_word;
         begin
             padded_word = word;
 
             if (word_idx == int'(domain_offset[31:2])) begin
                 unique case (domain_offset[1:0])
-                    2'd0: padded_word[7:0]   = padded_word[7:0] ^ domain;
-                    2'd1: padded_word[15:8]  = padded_word[15:8] ^ domain;
+                    2'd0: padded_word[7:0] = padded_word[7:0] ^ domain;
+                    2'd1: padded_word[15:8] = padded_word[15:8] ^ domain;
                     2'd2: padded_word[23:16] = padded_word[23:16] ^ domain;
                     2'd3: padded_word[31:24] = padded_word[31:24] ^ domain;
                     default: ;
@@ -158,8 +154,8 @@ module keccak_sponge_dma (
     logic [31:0] out_remaining_q;
     logic [31:0] chunk_bytes_q;
     logic [31:0] out_len_q;
-    logic [ 7:0] domain_q;
-    logic [ 1:0] mode_q;
+    logic [7:0] domain_q;
+    logic [1:0] mode_q;
     logic [31:0] din_words[0:KECCAK_BLOCK_WORDS-1];
     logic [CNT_W-1:0] word_count_q;
     logic [CNT_W-1:0] last_word_cnt_q;
@@ -251,50 +247,49 @@ module keccak_sponge_dma (
     );
 
     always_comb begin
-        state_d                 = state_q;
-        latch_raw_cfg           = 1'b0;
-        latch_sponge_cfg        = 1'b0;
-        setup_absorb_chunk      = 1'b0;
-        setup_empty_pad         = 1'b0;
-        setup_squeeze_chunk     = 1'b0;
-        read_raw_word_en        = 1'b0;
-        read_sponge_word_en     = 1'b0;
-        apply_sponge_pad        = 1'b0;
-        latch_core_output       = 1'b0;
-        advance_raw_chunk       = 1'b0;
-        advance_absorb_chunk    = 1'b0;
-        advance_squeeze_chunk   = 1'b0;
-        cnt_gnt_inc             = 1'b0;
-        cnt_rvalid_inc          = 1'b0;
-        outstanding_inc         = 1'b0;
-        outstanding_dec         = 1'b0;
-        cnt_clr                 = 1'b0;
-        obi_tmo_clr             = 1'b1;
-        obi_tmo_inc             = 1'b0;
-        core_tmo_clr            = 1'b1;
-        core_tmo_inc            = 1'b0;
-        error_set               = 1'b0;
-        core_start              = 1'b0;
+        state_d               = state_q;
+        latch_raw_cfg         = 1'b0;
+        latch_sponge_cfg      = 1'b0;
+        setup_absorb_chunk    = 1'b0;
+        setup_empty_pad       = 1'b0;
+        setup_squeeze_chunk   = 1'b0;
+        read_raw_word_en      = 1'b0;
+        read_sponge_word_en   = 1'b0;
+        apply_sponge_pad      = 1'b0;
+        latch_core_output     = 1'b0;
+        advance_raw_chunk     = 1'b0;
+        advance_absorb_chunk  = 1'b0;
+        advance_squeeze_chunk = 1'b0;
+        cnt_gnt_inc           = 1'b0;
+        cnt_rvalid_inc        = 1'b0;
+        outstanding_inc       = 1'b0;
+        outstanding_dec       = 1'b0;
+        cnt_clr               = 1'b0;
+        obi_tmo_clr           = 1'b1;
+        obi_tmo_inc           = 1'b0;
+        core_tmo_clr          = 1'b1;
+        core_tmo_inc          = 1'b0;
+        error_set             = 1'b0;
+        core_start            = 1'b0;
 
-        obi_req_o               = 1'b0;
-        obi_we_o                = 1'b0;
-        obi_addr_o              = 32'h0;
-        obi_wdata_o             = 32'h0;
-        obi_be_o                = 4'hF;
+        obi_req_o             = 1'b0;
+        obi_we_o              = 1'b0;
+        obi_addr_o            = 32'h0;
+        obi_wdata_o           = 32'h0;
+        obi_be_o              = 4'hF;
 
         case (state_q)
             ST_IDLE: begin
                 if (start_i) begin
                     unique case (mode_i)
                         MODE_RAW_PERMUTE: begin
-                            if ((data_len_i != 32'h0) &&
-                                (data_len_i <= KECCAK_MAX_XFER_BYTES)) begin
+                            if ((data_len_i != 32'h0) && (data_len_i <= KECCAK_MAX_XFER_BYTES)) begin
                                 latch_raw_cfg = 1'b1;
                                 cnt_clr = 1'b1;
                                 state_d = ST_RAW_READ;
                             end else begin
                                 error_set = 1'b1;
-                                state_d = ST_ERROR;
+                                state_d   = ST_ERROR;
                             end
                         end
 
@@ -305,13 +300,13 @@ module keccak_sponge_dma (
                                 state_d = ST_SPONGE_ABSORB_PREP;
                             end else begin
                                 error_set = 1'b1;
-                                state_d = ST_ERROR;
+                                state_d   = ST_ERROR;
                             end
                         end
 
                         default: begin
                             error_set = 1'b1;
-                            state_d = ST_ERROR;
+                            state_d   = ST_ERROR;
                         end
                     endcase
                 end
@@ -335,7 +330,7 @@ module keccak_sponge_dma (
                 if ((rvalid_cnt_q < word_count_q) && obi_rvalid_i) begin
                     if (outstanding_cnt_q == '0) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end else begin
                         read_raw_word_en = 1'b1;
                         cnt_rvalid_inc = 1'b1;
@@ -353,7 +348,7 @@ module keccak_sponge_dma (
                     obi_tmo_inc = 1'b1;
                     if (obi_timeout_cnt_q == OBI_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -372,7 +367,7 @@ module keccak_sponge_dma (
                     core_tmo_inc = 1'b1;
                     if (core_timeout_cnt_q == CORE_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -388,7 +383,7 @@ module keccak_sponge_dma (
                     core_tmo_inc = 1'b1;
                     if (core_timeout_cnt_q == CORE_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -413,7 +408,7 @@ module keccak_sponge_dma (
                 if ((rvalid_cnt_q < word_count_q) && obi_rvalid_i) begin
                     if (outstanding_cnt_q == '0) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end else begin
                         cnt_rvalid_inc = 1'b1;
                         outstanding_dec = 1'b1;
@@ -435,7 +430,7 @@ module keccak_sponge_dma (
                     obi_tmo_inc = 1'b1;
                     if (obi_timeout_cnt_q == OBI_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -469,7 +464,7 @@ module keccak_sponge_dma (
                 if ((rvalid_cnt_q < word_count_q) && obi_rvalid_i) begin
                     if (outstanding_cnt_q == '0) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end else begin
                         read_sponge_word_en = 1'b1;
                         cnt_rvalid_inc = 1'b1;
@@ -491,7 +486,7 @@ module keccak_sponge_dma (
                     obi_tmo_inc = 1'b1;
                     if (obi_timeout_cnt_q == OBI_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -515,7 +510,7 @@ module keccak_sponge_dma (
                     core_tmo_inc = 1'b1;
                     if (core_timeout_cnt_q == CORE_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -535,7 +530,7 @@ module keccak_sponge_dma (
                     core_tmo_inc = 1'b1;
                     if (core_timeout_cnt_q == CORE_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -566,7 +561,7 @@ module keccak_sponge_dma (
                 if ((rvalid_cnt_q < word_count_q) && obi_rvalid_i) begin
                     if (outstanding_cnt_q == '0) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end else begin
                         cnt_rvalid_inc = 1'b1;
                         outstanding_dec = 1'b1;
@@ -588,7 +583,7 @@ module keccak_sponge_dma (
                     obi_tmo_inc = 1'b1;
                     if (obi_timeout_cnt_q == OBI_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -607,7 +602,7 @@ module keccak_sponge_dma (
                     core_tmo_inc = 1'b1;
                     if (core_timeout_cnt_q == CORE_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -622,7 +617,7 @@ module keccak_sponge_dma (
                     core_tmo_inc = 1'b1;
                     if (core_timeout_cnt_q == CORE_TMO_LAST) begin
                         error_set = 1'b1;
-                        state_d = ST_ERROR;
+                        state_d   = ST_ERROR;
                     end
                 end
             end
@@ -777,7 +772,7 @@ module keccak_sponge_dma (
 
             if (error_set) begin
                 error_q <= 1'b1;
-                intr_q <= 1'b1;
+                intr_q  <= 1'b1;
             end
 
             if (cnt_clr) begin
@@ -792,9 +787,11 @@ module keccak_sponge_dma (
                     rvalid_cnt_q <= rvalid_cnt_q + 1'b1;
                 end
 
-                unique case ({outstanding_inc, outstanding_dec})
-                    2'b10: outstanding_cnt_q <= outstanding_cnt_q + 1'b1;
-                    2'b01: outstanding_cnt_q <= outstanding_cnt_q - 1'b1;
+                unique case ({
+                    outstanding_inc, outstanding_dec
+                })
+                    2'b10:   outstanding_cnt_q <= outstanding_cnt_q + 1'b1;
+                    2'b01:   outstanding_cnt_q <= outstanding_cnt_q - 1'b1;
                     default: ;
                 endcase
             end

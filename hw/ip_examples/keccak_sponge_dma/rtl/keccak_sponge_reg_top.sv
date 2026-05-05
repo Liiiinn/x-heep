@@ -8,345 +8,345 @@
 `include "common_cells/assertions.svh"
 
 module keccak_sponge_reg_top #(
-  parameter type reg_req_t = logic,
-  parameter type reg_rsp_t = logic,
-  parameter int AW = 5
+    parameter type reg_req_t = logic,
+    parameter type reg_rsp_t = logic,
+    parameter int AW = 5
 ) (
-  input logic clk_i,
-  input logic rst_ni,
-  input  reg_req_t reg_req_i,
-  output reg_rsp_t reg_rsp_o,
-  // To HW
-  output keccak_sponge_reg_pkg::keccak_sponge_reg2hw_t reg2hw, // Write
-  input  keccak_sponge_reg_pkg::keccak_sponge_hw2reg_t hw2reg, // Read
+    input logic clk_i,
+    input logic rst_ni,
+    input reg_req_t reg_req_i,
+    output reg_rsp_t reg_rsp_o,
+    // To HW
+    output keccak_sponge_reg_pkg::keccak_sponge_reg2hw_t reg2hw,  // Write
+    input keccak_sponge_reg_pkg::keccak_sponge_hw2reg_t hw2reg,  // Read
 
 
-  // Config
-  input devmode_i // If 1, explicit error return for unmapped register access
+    // Config
+    input devmode_i  // If 1, explicit error return for unmapped register access
 );
 
-  import keccak_sponge_reg_pkg::* ;
-
-  localparam int DW = 32;
-  localparam int DBW = DW/8;                    // Byte Width
-
-  // register signals
-  logic           reg_we;
-  logic           reg_re;
-  logic [BlockAw-1:0]  reg_addr;
-  logic [DW-1:0]  reg_wdata;
-  logic [DBW-1:0] reg_be;
-  logic [DW-1:0]  reg_rdata;
-  logic           reg_error;
-
-  logic          addrmiss, wr_err;
-
-  logic [DW-1:0] reg_rdata_next;
-
-  // Below register interface can be changed
-  reg_req_t  reg_intf_req;
-  reg_rsp_t  reg_intf_rsp;
-
-
-  assign reg_intf_req = reg_req_i;
-  assign reg_rsp_o = reg_intf_rsp;
-
-
-  assign reg_we = reg_intf_req.valid & reg_intf_req.write;
-  assign reg_re = reg_intf_req.valid & ~reg_intf_req.write;
-  assign reg_addr = reg_intf_req.addr[BlockAw-1:0];
-  assign reg_wdata = reg_intf_req.wdata;
-  assign reg_be = reg_intf_req.wstrb;
-  assign reg_intf_rsp.rdata = reg_rdata;
-  assign reg_intf_rsp.error = reg_error;
-  assign reg_intf_rsp.ready = 1'b1;
-
-  assign reg_rdata = reg_rdata_next ;
-  assign reg_error = (devmode_i & addrmiss) | wr_err;
-
-
-  // Define SW related signals
-  // Format: <reg>_<field>_{wd|we|qs}
-  //        or <reg>_{wd|we|qs} if field == 1 or 0
-  logic [31:0] src_addr_qs;
-  logic [31:0] src_addr_wd;
-  logic src_addr_we;
-  logic [31:0] dst_addr_qs;
-  logic [31:0] dst_addr_wd;
-  logic dst_addr_we;
-  logic [31:0] data_len_qs;
-  logic [31:0] data_len_wd;
-  logic data_len_we;
-  logic [31:0] out_len_qs;
-  logic [31:0] out_len_wd;
-  logic out_len_we;
-  logic [7:0] domain_qs;
-  logic [7:0] domain_wd;
-  logic domain_we;
-  logic ctrl_wd;
-  logic ctrl_we;
-  logic status_done_qs;
-  logic status_busy_qs;
-  logic status_error_qs;
-
-  // Register instances
-  // R[src_addr]: V(False)
-
-  prim_subreg #(
-    .DW      (32),
-    .SWACCESS("RW"),
-    .RESVAL  (32'h0)
-  ) u_src_addr (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
-    .we     (src_addr_we),
-    .wd     (src_addr_wd),
-
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
-
-    // to internal hardware
-    .qe     (),
-    .q      (reg2hw.src_addr.q ),
-
-    // to register interface (read)
-    .qs     (src_addr_qs)
-  );
-
-
-  // R[dst_addr]: V(False)
-
-  prim_subreg #(
-    .DW      (32),
-    .SWACCESS("RW"),
-    .RESVAL  (32'h0)
-  ) u_dst_addr (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    import keccak_sponge_reg_pkg::*;
+
+    localparam int DW = 32;
+    localparam int DBW = DW / 8;  // Byte Width
+
+    // register signals
+    logic               reg_we;
+    logic               reg_re;
+    logic [BlockAw-1:0] reg_addr;
+    logic [     DW-1:0] reg_wdata;
+    logic [    DBW-1:0] reg_be;
+    logic [     DW-1:0] reg_rdata;
+    logic               reg_error;
+
+    logic addrmiss, wr_err;
+
+    logic [DW-1:0] reg_rdata_next;
+
+    // Below register interface can be changed
+    reg_req_t reg_intf_req;
+    reg_rsp_t reg_intf_rsp;
+
+
+    assign reg_intf_req = reg_req_i;
+    assign reg_rsp_o = reg_intf_rsp;
+
+
+    assign reg_we = reg_intf_req.valid & reg_intf_req.write;
+    assign reg_re = reg_intf_req.valid & ~reg_intf_req.write;
+    assign reg_addr = reg_intf_req.addr[BlockAw-1:0];
+    assign reg_wdata = reg_intf_req.wdata;
+    assign reg_be = reg_intf_req.wstrb;
+    assign reg_intf_rsp.rdata = reg_rdata;
+    assign reg_intf_rsp.error = reg_error;
+    assign reg_intf_rsp.ready = 1'b1;
+
+    assign reg_rdata = reg_rdata_next;
+    assign reg_error = (devmode_i & addrmiss) | wr_err;
+
+
+    // Define SW related signals
+    // Format: <reg>_<field>_{wd|we|qs}
+    //        or <reg>_{wd|we|qs} if field == 1 or 0
+    logic [31:0] src_addr_qs;
+    logic [31:0] src_addr_wd;
+    logic src_addr_we;
+    logic [31:0] dst_addr_qs;
+    logic [31:0] dst_addr_wd;
+    logic dst_addr_we;
+    logic [31:0] data_len_qs;
+    logic [31:0] data_len_wd;
+    logic data_len_we;
+    logic [31:0] out_len_qs;
+    logic [31:0] out_len_wd;
+    logic out_len_we;
+    logic [7:0] domain_qs;
+    logic [7:0] domain_wd;
+    logic domain_we;
+    logic ctrl_wd;
+    logic ctrl_we;
+    logic status_done_qs;
+    logic status_busy_qs;
+    logic status_error_qs;
+
+    // Register instances
+    // R[src_addr]: V(False)
+
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RW"),
+        .RESVAL  (32'h0)
+    ) u_src_addr (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
+
+        // from register interface
+        .we(src_addr_we),
+        .wd(src_addr_wd),
+
+        // from internal hardware
+        .de(1'b0),
+        .d ('0),
+
+        // to internal hardware
+        .qe(),
+        .q (reg2hw.src_addr.q),
+
+        // to register interface (read)
+        .qs(src_addr_qs)
+    );
+
+
+    // R[dst_addr]: V(False)
+
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RW"),
+        .RESVAL  (32'h0)
+    ) u_dst_addr (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    // from register interface
-    .we     (dst_addr_we),
-    .wd     (dst_addr_wd),
+        // from register interface
+        .we(dst_addr_we),
+        .wd(dst_addr_wd),
 
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+        // from internal hardware
+        .de(1'b0),
+        .d ('0),
 
-    // to internal hardware
-    .qe     (),
-    .q      (reg2hw.dst_addr.q ),
+        // to internal hardware
+        .qe(),
+        .q (reg2hw.dst_addr.q),
 
-    // to register interface (read)
-    .qs     (dst_addr_qs)
-  );
+        // to register interface (read)
+        .qs(dst_addr_qs)
+    );
 
 
-  // R[data_len]: V(False)
+    // R[data_len]: V(False)
 
-  prim_subreg #(
-    .DW      (32),
-    .SWACCESS("RW"),
-    .RESVAL  (32'h0)
-  ) u_data_len (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RW"),
+        .RESVAL  (32'h0)
+    ) u_data_len (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    // from register interface
-    .we     (data_len_we),
-    .wd     (data_len_wd),
+        // from register interface
+        .we(data_len_we),
+        .wd(data_len_wd),
 
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+        // from internal hardware
+        .de(1'b0),
+        .d ('0),
 
-    // to internal hardware
-    .qe     (),
-    .q      (reg2hw.data_len.q ),
+        // to internal hardware
+        .qe(),
+        .q (reg2hw.data_len.q),
 
-    // to register interface (read)
-    .qs     (data_len_qs)
-  );
+        // to register interface (read)
+        .qs(data_len_qs)
+    );
 
 
-  // R[out_len]: V(False)
+    // R[out_len]: V(False)
 
-  prim_subreg #(
-    .DW      (32),
-    .SWACCESS("RW"),
-    .RESVAL  (32'h0)
-  ) u_out_len (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RW"),
+        .RESVAL  (32'h0)
+    ) u_out_len (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    // from register interface
-    .we     (out_len_we),
-    .wd     (out_len_wd),
+        // from register interface
+        .we(out_len_we),
+        .wd(out_len_wd),
 
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+        // from internal hardware
+        .de(1'b0),
+        .d ('0),
 
-    // to internal hardware
-    .qe     (),
-    .q      (reg2hw.out_len.q ),
+        // to internal hardware
+        .qe(),
+        .q (reg2hw.out_len.q),
 
-    // to register interface (read)
-    .qs     (out_len_qs)
-  );
+        // to register interface (read)
+        .qs(out_len_qs)
+    );
 
 
-  // R[domain]: V(False)
+    // R[domain]: V(False)
 
-  prim_subreg #(
-    .DW      (8),
-    .SWACCESS("RW"),
-    .RESVAL  (8'h0)
-  ) u_domain (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    prim_subreg #(
+        .DW      (8),
+        .SWACCESS("RW"),
+        .RESVAL  (8'h0)
+    ) u_domain (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    // from register interface
-    .we     (domain_we),
-    .wd     (domain_wd),
+        // from register interface
+        .we(domain_we),
+        .wd(domain_wd),
 
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+        // from internal hardware
+        .de(1'b0),
+        .d ('0),
 
-    // to internal hardware
-    .qe     (),
-    .q      (reg2hw.domain.q ),
+        // to internal hardware
+        .qe(),
+        .q (reg2hw.domain.q),
 
-    // to register interface (read)
-    .qs     (domain_qs)
-  );
+        // to register interface (read)
+        .qs(domain_qs)
+    );
 
 
-  // R[ctrl]: V(False)
+    // R[ctrl]: V(False)
 
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("WO"),
-    .RESVAL  (1'h0)
-  ) u_ctrl (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    prim_subreg #(
+        .DW      (1),
+        .SWACCESS("WO"),
+        .RESVAL  (1'h0)
+    ) u_ctrl (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    // from register interface
-    .we     (ctrl_we),
-    .wd     (ctrl_wd),
+        // from register interface
+        .we(ctrl_we),
+        .wd(ctrl_wd),
 
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+        // from internal hardware
+        .de(1'b0),
+        .d ('0),
 
-    // to internal hardware
-    .qe     (),
-    .q      (reg2hw.ctrl.q ),
+        // to internal hardware
+        .qe(),
+        .q (reg2hw.ctrl.q),
 
-    .qs     ()
-  );
+        .qs()
+    );
 
 
-  // R[status]: V(False)
+    // R[status]: V(False)
 
-  //   F[done]: 0:0
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RO"),
-    .RESVAL  (1'h0)
-  ) u_status_done (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    //   F[done]: 0:0
+    prim_subreg #(
+        .DW      (1),
+        .SWACCESS("RO"),
+        .RESVAL  (1'h0)
+    ) u_status_done (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    .we     (1'b0),
-    .wd     ('0  ),
+        .we(1'b0),
+        .wd('0),
 
-    // from internal hardware
-    .de     (hw2reg.status.done.de),
-    .d      (hw2reg.status.done.d ),
+        // from internal hardware
+        .de(hw2reg.status.done.de),
+        .d (hw2reg.status.done.d),
 
-    // to internal hardware
-    .qe     (),
-    .q      (),
+        // to internal hardware
+        .qe(),
+        .q (),
 
-    // to register interface (read)
-    .qs     (status_done_qs)
-  );
+        // to register interface (read)
+        .qs(status_done_qs)
+    );
 
 
-  //   F[busy]: 1:1
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RO"),
-    .RESVAL  (1'h0)
-  ) u_status_busy (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    //   F[busy]: 1:1
+    prim_subreg #(
+        .DW      (1),
+        .SWACCESS("RO"),
+        .RESVAL  (1'h0)
+    ) u_status_busy (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    .we     (1'b0),
-    .wd     ('0  ),
+        .we(1'b0),
+        .wd('0),
 
-    // from internal hardware
-    .de     (hw2reg.status.busy.de),
-    .d      (hw2reg.status.busy.d ),
+        // from internal hardware
+        .de(hw2reg.status.busy.de),
+        .d (hw2reg.status.busy.d),
 
-    // to internal hardware
-    .qe     (),
-    .q      (),
+        // to internal hardware
+        .qe(),
+        .q (),
 
-    // to register interface (read)
-    .qs     (status_busy_qs)
-  );
+        // to register interface (read)
+        .qs(status_busy_qs)
+    );
 
 
-  //   F[error]: 2:2
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RO"),
-    .RESVAL  (1'h0)
-  ) u_status_error (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
+    //   F[error]: 2:2
+    prim_subreg #(
+        .DW      (1),
+        .SWACCESS("RO"),
+        .RESVAL  (1'h0)
+    ) u_status_error (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
 
-    .we     (1'b0),
-    .wd     ('0  ),
+        .we(1'b0),
+        .wd('0),
 
-    // from internal hardware
-    .de     (hw2reg.status.error.de),
-    .d      (hw2reg.status.error.d ),
+        // from internal hardware
+        .de(hw2reg.status.error.de),
+        .d (hw2reg.status.error.d),
 
-    // to internal hardware
-    .qe     (),
-    .q      (),
+        // to internal hardware
+        .qe(),
+        .q (),
 
-    // to register interface (read)
-    .qs     (status_error_qs)
-  );
+        // to register interface (read)
+        .qs(status_error_qs)
+    );
 
 
 
 
-  logic [6:0] addr_hit;
-  always_comb begin
-    addr_hit = '0;
-    addr_hit[0] = (reg_addr == KECCAK_SPONGE_SRC_ADDR_OFFSET);
-    addr_hit[1] = (reg_addr == KECCAK_SPONGE_DST_ADDR_OFFSET);
-    addr_hit[2] = (reg_addr == KECCAK_SPONGE_DATA_LEN_OFFSET);
-    addr_hit[3] = (reg_addr == KECCAK_SPONGE_OUT_LEN_OFFSET);
-    addr_hit[4] = (reg_addr == KECCAK_SPONGE_DOMAIN_OFFSET);
-    addr_hit[5] = (reg_addr == KECCAK_SPONGE_CTRL_OFFSET);
-    addr_hit[6] = (reg_addr == KECCAK_SPONGE_STATUS_OFFSET);
-  end
+    logic [6:0] addr_hit;
+    always_comb begin
+        addr_hit = '0;
+        addr_hit[0] = (reg_addr == KECCAK_SPONGE_SRC_ADDR_OFFSET);
+        addr_hit[1] = (reg_addr == KECCAK_SPONGE_DST_ADDR_OFFSET);
+        addr_hit[2] = (reg_addr == KECCAK_SPONGE_DATA_LEN_OFFSET);
+        addr_hit[3] = (reg_addr == KECCAK_SPONGE_OUT_LEN_OFFSET);
+        addr_hit[4] = (reg_addr == KECCAK_SPONGE_DOMAIN_OFFSET);
+        addr_hit[5] = (reg_addr == KECCAK_SPONGE_CTRL_OFFSET);
+        addr_hit[6] = (reg_addr == KECCAK_SPONGE_STATUS_OFFSET);
+    end
 
-  assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
+    assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0;
 
-  // Check sub-word write is permitted
-  always_comb begin
-    wr_err = (reg_we &
+    // Check sub-word write is permitted
+    always_comb begin
+        wr_err = (reg_we &
               ((addr_hit[0] & (|(KECCAK_SPONGE_PERMIT[0] & ~reg_be))) |
                (addr_hit[1] & (|(KECCAK_SPONGE_PERMIT[1] & ~reg_be))) |
                (addr_hit[2] & (|(KECCAK_SPONGE_PERMIT[2] & ~reg_be))) |
@@ -354,126 +354,125 @@ module keccak_sponge_reg_top #(
                (addr_hit[4] & (|(KECCAK_SPONGE_PERMIT[4] & ~reg_be))) |
                (addr_hit[5] & (|(KECCAK_SPONGE_PERMIT[5] & ~reg_be))) |
                (addr_hit[6] & (|(KECCAK_SPONGE_PERMIT[6] & ~reg_be)))));
-  end
+    end
 
-  assign src_addr_we = addr_hit[0] & reg_we & !reg_error;
-  assign src_addr_wd = reg_wdata[31:0];
+    assign src_addr_we = addr_hit[0] & reg_we & !reg_error;
+    assign src_addr_wd = reg_wdata[31:0];
 
-  assign dst_addr_we = addr_hit[1] & reg_we & !reg_error;
-  assign dst_addr_wd = reg_wdata[31:0];
+    assign dst_addr_we = addr_hit[1] & reg_we & !reg_error;
+    assign dst_addr_wd = reg_wdata[31:0];
 
-  assign data_len_we = addr_hit[2] & reg_we & !reg_error;
-  assign data_len_wd = reg_wdata[31:0];
+    assign data_len_we = addr_hit[2] & reg_we & !reg_error;
+    assign data_len_wd = reg_wdata[31:0];
 
-  assign out_len_we = addr_hit[3] & reg_we & !reg_error;
-  assign out_len_wd = reg_wdata[31:0];
+    assign out_len_we = addr_hit[3] & reg_we & !reg_error;
+    assign out_len_wd = reg_wdata[31:0];
 
-  assign domain_we = addr_hit[4] & reg_we & !reg_error;
-  assign domain_wd = reg_wdata[7:0];
+    assign domain_we = addr_hit[4] & reg_we & !reg_error;
+    assign domain_wd = reg_wdata[7:0];
 
-  assign ctrl_we = addr_hit[5] & reg_we & !reg_error;
-  assign ctrl_wd = reg_wdata[0];
+    assign ctrl_we = addr_hit[5] & reg_we & !reg_error;
+    assign ctrl_wd = reg_wdata[0];
 
-  // Read data return
-  always_comb begin
-    reg_rdata_next = '0;
-    unique case (1'b1)
-      addr_hit[0]: begin
-        reg_rdata_next[31:0] = src_addr_qs;
-      end
+    // Read data return
+    always_comb begin
+        reg_rdata_next = '0;
+        unique case (1'b1)
+            addr_hit[0]: begin
+                reg_rdata_next[31:0] = src_addr_qs;
+            end
 
-      addr_hit[1]: begin
-        reg_rdata_next[31:0] = dst_addr_qs;
-      end
+            addr_hit[1]: begin
+                reg_rdata_next[31:0] = dst_addr_qs;
+            end
 
-      addr_hit[2]: begin
-        reg_rdata_next[31:0] = data_len_qs;
-      end
+            addr_hit[2]: begin
+                reg_rdata_next[31:0] = data_len_qs;
+            end
 
-      addr_hit[3]: begin
-        reg_rdata_next[31:0] = out_len_qs;
-      end
+            addr_hit[3]: begin
+                reg_rdata_next[31:0] = out_len_qs;
+            end
 
-      addr_hit[4]: begin
-        reg_rdata_next[7:0] = domain_qs;
-      end
+            addr_hit[4]: begin
+                reg_rdata_next[7:0] = domain_qs;
+            end
 
-      addr_hit[5]: begin
-        reg_rdata_next[0] = '0;
-      end
+            addr_hit[5]: begin
+                reg_rdata_next[0] = '0;
+            end
 
-      addr_hit[6]: begin
-        reg_rdata_next[0] = status_done_qs;
-        reg_rdata_next[1] = status_busy_qs;
-        reg_rdata_next[2] = status_error_qs;
-      end
+            addr_hit[6]: begin
+                reg_rdata_next[0] = status_done_qs;
+                reg_rdata_next[1] = status_busy_qs;
+                reg_rdata_next[2] = status_error_qs;
+            end
 
-      default: begin
-        reg_rdata_next = '1;
-      end
-    endcase
-  end
+            default: begin
+                reg_rdata_next = '1;
+            end
+        endcase
+    end
 
-  // Unused signal tieoff
+    // Unused signal tieoff
 
-  // wdata / byte enable are not always fully used
-  // add a blanket unused statement to handle lint waivers
-  logic unused_wdata;
-  logic unused_be;
-  assign unused_wdata = ^reg_wdata;
-  assign unused_be = ^reg_be;
+    // wdata / byte enable are not always fully used
+    // add a blanket unused statement to handle lint waivers
+    logic unused_wdata;
+    logic unused_be;
+    assign unused_wdata = ^reg_wdata;
+    assign unused_be = ^reg_be;
 
-  // Assertions for Register Interface
-  `ASSERT(en2addrHit, (reg_we || reg_re) |-> $onehot0(addr_hit))
+    // Assertions for Register Interface
+    `ASSERT(en2addrHit, (reg_we || reg_re) |-> $onehot0(addr_hit))
 
 endmodule
 
-module keccak_sponge_reg_top_intf
-#(
-  parameter int AW = 5,
-  localparam int DW = 32
+module keccak_sponge_reg_top_intf #(
+    parameter  int AW = 5,
+    localparam int DW = 32
 ) (
-  input logic clk_i,
-  input logic rst_ni,
-  REG_BUS.in  regbus_slave,
-  // To HW
-  output keccak_sponge_reg_pkg::keccak_sponge_reg2hw_t reg2hw, // Write
-  input  keccak_sponge_reg_pkg::keccak_sponge_hw2reg_t hw2reg, // Read
-  // Config
-  input devmode_i // If 1, explicit error return for unmapped register access
+    input logic clk_i,
+    input logic rst_ni,
+    REG_BUS.in regbus_slave,
+    // To HW
+    output keccak_sponge_reg_pkg::keccak_sponge_reg2hw_t reg2hw,  // Write
+    input keccak_sponge_reg_pkg::keccak_sponge_hw2reg_t hw2reg,  // Read
+    // Config
+    input devmode_i  // If 1, explicit error return for unmapped register access
 );
- localparam int unsigned STRB_WIDTH = DW/8;
+    localparam int unsigned STRB_WIDTH = DW / 8;
 
-`include "register_interface/typedef.svh"
-`include "register_interface/assign.svh"
+    `include "register_interface/typedef.svh"
+    `include "register_interface/assign.svh"
 
-  // Define structs for reg_bus
-  typedef logic [AW-1:0] addr_t;
-  typedef logic [DW-1:0] data_t;
-  typedef logic [STRB_WIDTH-1:0] strb_t;
-  `REG_BUS_TYPEDEF_ALL(reg_bus, addr_t, data_t, strb_t)
+    // Define structs for reg_bus
+    typedef logic [AW-1:0] addr_t;
+    typedef logic [DW-1:0] data_t;
+    typedef logic [STRB_WIDTH-1:0] strb_t;
+    `REG_BUS_TYPEDEF_ALL(reg_bus, addr_t, data_t, strb_t)
 
-  reg_bus_req_t s_reg_req;
-  reg_bus_rsp_t s_reg_rsp;
+    reg_bus_req_t s_reg_req;
+    reg_bus_rsp_t s_reg_rsp;
 
-  // Assign SV interface to structs
-  `REG_BUS_ASSIGN_TO_REQ(s_reg_req, regbus_slave)
-  `REG_BUS_ASSIGN_FROM_RSP(regbus_slave, s_reg_rsp)
+    // Assign SV interface to structs
+    `REG_BUS_ASSIGN_TO_REQ(s_reg_req, regbus_slave)
+    `REG_BUS_ASSIGN_FROM_RSP(regbus_slave, s_reg_rsp)
 
 
 
-  keccak_sponge_reg_top #(
-    .reg_req_t(reg_bus_req_t),
-    .reg_rsp_t(reg_bus_rsp_t),
-    .AW(AW)
-  ) i_regs (
-    .clk_i,
-    .rst_ni,
-    .reg_req_i(s_reg_req),
-    .reg_rsp_o(s_reg_rsp),
-    .reg2hw, // Write
-    .hw2reg, // Read
-    .devmode_i
-  );
+    keccak_sponge_reg_top #(
+        .reg_req_t(reg_bus_req_t),
+        .reg_rsp_t(reg_bus_rsp_t),
+        .AW(AW)
+    ) i_regs (
+        .clk_i,
+        .rst_ni,
+        .reg_req_i(s_reg_req),
+        .reg_rsp_o(s_reg_rsp),
+        .reg2hw,  // Write
+        .hw2reg,  // Read
+        .devmode_i
+    );
 
 endmodule

@@ -25,21 +25,21 @@ module keccak_round (
 
     // Theta
     generate
-    for (x = 0; x <= 4; x++)
+        for (x = 0; x <= 4; x++)
         for (i = 0; i <= LANE - 1; i++)
             assign sum_sheet[x][i] = theta_in[0][x][i] ^ theta_in[1][x][i] ^ theta_in[2][x][i] ^ theta_in[3][x][i] ^ theta_in[4][x][i];
     endgenerate
 
     generate
-    for (y = 0; y <= 4; y++) begin : loop_y
-        for (x = 0; x <= 4; x++) begin : loop_x
-            for (i = 0; i <= LANE - 1; i++) begin : loop_i
-                assign theta_out[y][x][i] = theta_in[y][x][i] ^ 
+        for (y = 0; y <= 4; y++) begin : loop_y
+            for (x = 0; x <= 4; x++) begin : loop_x
+                for (i = 0; i <= LANE - 1; i++) begin : loop_i
+                    assign theta_out[y][x][i] = theta_in[y][x][i] ^ 
                                                         sum_sheet[(x + 4) % 5][i] ^ 
                                                         sum_sheet[(x + 1) % 5][(i + LANE - 1) % LANE];
+                end
             end
         end
-    end
     endgenerate
 
     // Rho
@@ -80,23 +80,23 @@ module keccak_round (
     // Pi
     generate
         for (y = 0; y <= 4; y++)
-            for (x = 0; x <= 4; x++)
-                for (i = 0; i <= LANE - 1; i++) assign pi_out[(2*x+3*y)%5][0*x+1*y][i] = pi_in[y][x][i];
+        for (x = 0; x <= 4; x++)
+        for (i = 0; i <= LANE - 1; i++) assign pi_out[(2*x+3*y)%5][0*x+1*y][i] = pi_in[y][x][i];
     endgenerate
 
     // Chi
     generate
         for (y = 0; y <= 4; y++)
-            for (x = 0; x <= 4; x++)
-                for (i = 0; i <= LANE - 1; i++)
-                    assign chi_out[y][x][i] = chi_in[y][x][i] ^ ((~chi_in[y][(x+1) % 5][i]) & chi_in[y][(x+2) % 5][i]);
+        for (x = 0; x <= 4; x++)
+        for (i = 0; i <= LANE - 1; i++)
+            assign chi_out[y][x][i] = chi_in[y][x][i] ^ ((~chi_in[y][(x+1) % 5][i]) & chi_in[y][(x+2) % 5][i]);
     endgenerate
 
     // Iota
     generate
-    for (y = 0; y <= 4; y++)
+        for (y = 0; y <= 4; y++)
         for (x = 0; x <= 4; x++)
-            for (i = 0; i <= LANE - 1; i++)
-                assign iota_out[y][x][i] = (y == 0 && x == 0) ? (iota_in[y][x][i] ^ Round_constant_signal[i]) : iota_in[y][x][i];
+        for (i = 0; i <= LANE - 1; i++)
+            assign iota_out[y][x][i] = (y == 0 && x == 0) ? (iota_in[y][x][i] ^ Round_constant_signal[i]) : iota_in[y][x][i];
     endgenerate
 endmodule
