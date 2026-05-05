@@ -15,6 +15,7 @@ extern "C" {
 #define KECCAK_SPONGE_DMA_INTR_NUM EXT_INTR_3
 #define KECCAK_SPONGE_DMA_SHAKE256_RATE_BYTES 136u
 #define KECCAK_SPONGE_DMA_ADDR_ALIGN_BYTES 4u
+#define KECCAK_SPONGE_DMA_DEFAULT_TIMEOUT_CYCLES 1000000u
 
 typedef enum keccak_sponge_dma_result {
     kKeccakSpongeDmaOk = 0,

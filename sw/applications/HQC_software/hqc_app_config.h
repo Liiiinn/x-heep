@@ -1,0 +1,7 @@
+#ifndef HQC_APP_CONFIG_H
+#define HQC_APP_CONFIG_H
+
+#define HQC_USE_KECCAK_DMA 0
+#define HQC_USE_KECCAK_SPONGE_DMA 0
+
+#endif
