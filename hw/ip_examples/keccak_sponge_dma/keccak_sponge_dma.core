@@ -1,0 +1,23 @@
+CAPI=2:
+
+name: "example:ip:keccak_sponge_dma"
+description: "SHAKE256 sponge DMA external peripheral"
+
+filesets:
+    files_rtl:
+        depend:
+            - pulp-platform.org::common_cells
+            - pulp-platform.org::register_interface
+            - example:ip:keccak_dma
+        files:
+            - rtl/keccak_sponge_reg_pkg.sv
+            - rtl/keccak_sponge_reg_top.sv
+            - rtl/keccak_sponge_dma.sv
+            - rtl/keccak_sponge_top.sv
+            - rtl/keccak_sponge_dma_wrapper.sv
+        file_type: systemVerilogSource
+
+targets:
+    default:
+        filesets:
+            - files_rtl

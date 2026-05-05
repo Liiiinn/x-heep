@@ -1,0 +1,111 @@
+{
+    name: "keccak_sponge",
+    clock_primary: "clk_i",
+    reset_primary: "rst_ni",
+        bus_interfaces: [
+        { protocol: "reg_iface", direction: "device" }],
+    regwidth: "32",
+    registers: [
+        {
+            name: "SRC_ADDR",
+            desc: "Source base address in system memory for DMA reads",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "SRC_ADDR",
+                    desc: "DMA source start address"
+                }
+            ]
+        },
+        {
+            name: "DST_ADDR",
+            desc: "Destination base address in system memory for DMA writes",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "DST_ADDR",
+                    desc: "DMA destination start address"
+                }
+            ]
+        },
+        {
+            name: "DATA_LEN",
+            desc: "Sponge input length in bytes",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "DATA_LEN",
+                    desc: "SHAKE256 sponge input length in bytes"
+                }
+            ]
+        },
+        {
+            name: "OUT_LEN",
+            desc: "Sponge mode output length in bytes",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "OUT_LEN",
+                    desc: "SHAKE256 sponge output length in bytes"
+                }
+            ]
+        },
+        {
+            name: "DOMAIN",
+            desc: "Sponge mode domain/suffix byte",
+            swaccess: "rw",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "7:0",
+                    name: "DOMAIN",
+                    desc: "SHAKE256 domain/suffix byte XORed after input bytes"
+                }
+            ]
+        },
+        {
+            name: "CTRL",
+            desc: "Control register for DMA Keccak transaction",
+            swaccess: "wo",
+            hwaccess: "hro",
+            fields: [
+                {
+                    bits: "0",
+                    name: "START",
+                    desc: "Write 1 to start DMA read/compute/write sequence"
+                }
+            ]
+        },
+        {
+            name: "STATUS",
+            desc: "Status register for DMA Keccak transaction",
+            swaccess: "ro",
+            hwaccess: "hwo",
+            fields: [
+                {
+                    bits: "0",
+                    name: "DONE",
+                    desc: "Set by hardware when transaction completes"
+                },
+                {
+                    bits: "1",
+                    name: "BUSY",
+                    desc: "Set while DMA/Keccak transaction is in progress"
+                },
+                {
+                    bits: "2",
+                    name: "ERROR",
+                    desc: "Set by hardware on protocol/timeout/configuration failure"
+                }
+            ]
+        }
+    ]
+}
