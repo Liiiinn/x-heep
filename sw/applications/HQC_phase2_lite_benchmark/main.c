@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "x-heep.h"
 #include "keccak_dma.h"
@@ -29,6 +30,28 @@ static uint8_t g_out_var_p2[544];
 static uint8_t g_g_input[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES];
 static uint8_t g_k_input[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES];
 static keccak_dma_t *g_keccak_ptr = NULL;
+
+static void uart_printf(const char *fmt, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, fmt);
+    int n = vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    if (n < 0) {
+        return;
+    }
+
+    size_t len = (n < (int)sizeof(buffer)) ? (size_t)n : sizeof(buffer) - 1u;
+    for (size_t i = 0; i < len; ++i) {
+        if (buffer[i] == '\n') {
+            putchar('\r');
+        }
+        putchar(buffer[i]);
+    }
+}
+
+#define printf uart_printf
 
 typedef struct {
     const char *name;
@@ -158,7 +181,7 @@ static void print_row(const char *name, uint32_t p1, uint32_t p2, int match) {
     uint32_t abs_gain = (gain >= 0) ? (uint32_t)gain : (uint32_t)(-gain);
     uint32_t imp_tenths = (p1 > 0) ? ((abs_gain * 1000u) / p1) : 0u;
     char sign = (gain >= 0) ? '+' : '-';
-    printf("%-20s │ %9u │ %9u │ %+13d │ %c%u.%1u%% │ %s\n",
+    printf("%-20s | %9u | %9u | %+13d | %c%u.%1u%% | %s\n",
            name, p1, p2, gain, sign, imp_tenths / 10u, imp_tenths % 10u, match ? "PASS" : "FAIL");
 }
 
@@ -168,10 +191,10 @@ int main(void) {
     printf("[DBG] cycle counter enabled\n");
 
     printf("\n");
-    printf("╔══════════════════════════════════════════════════════════════════════╗\n");
-    printf("║          HQC-128 Phase1/Phase2 SHAKE L1 Quick Regression            ║\n");
-    printf("║   Real shake256_512_ds path + G/K domain semantics + edge lengths   ║\n");
-    printf("╚══════════════════════════════════════════════════════════════════════╝\n\n");
+    printf("+----------------------------------------------------------------------+\n");
+    printf("|          HQC-128 Phase1/Phase2 SHAKE L1 Quick Regression             |\n");
+    printf("|   Real shake256_512_ds path + G/K domain semantics + edge lengths    |\n");
+    printf("+----------------------------------------------------------------------+\n\n");
 
     keccak_dma_t keccak;
     printf("[DBG] before keccak_dma_init\n");
@@ -282,8 +305,8 @@ int main(void) {
     uint32_t total_calls_p1 = 0;
     uint32_t total_calls_p2 = 0;
 
-    printf("case                 │ P1 cycles │ P2 cycles │   gain(P1-P2) │ improve │ match\n");
-    printf("─────────────────────┼───────────┼───────────┼───────────────┼─────────┼──────\n");
+    printf("case                 | P1 cycles | P2 cycles |   gain(P1-P2) | improve | match\n");
+    printf("---------------------+-----------+-----------+---------------+---------+------\n");
 
     for (size_t i = 0; i < (sizeof(cases) / sizeof(cases[0])); ++i) {
         printf("[DBG] case=%s in=%u out=%u domain=%u mode=%s\n",
@@ -337,9 +360,9 @@ int main(void) {
         total_calls_p2 += p2.keccak_calls;
     }
 
-    printf("─────────────────────┼───────────┼───────────┼───────────────┼─────────┼──────\n");
+    printf("---------------------+-----------+-----------+---------------+---------+------\n");
     print_row("TOTAL", total_p1, total_p2, all_ok);
-    printf("═════════════════════╧═══════════╧═══════════╧═══════════════╧═════════╧══════\n\n");
+    printf("=====================+===========+===========+===============+=========+======\n\n");
 
     char keccak_p1_dec[21];
     char keccak_p2_dec[21];
