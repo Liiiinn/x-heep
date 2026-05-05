@@ -2,6 +2,7 @@
 #include "parameters.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 /**
  * @file gf2x.c
  * @brief Implementation of multiplication of two polynomials
@@ -190,8 +191,11 @@ static void reduce(uint64_t *o, const uint64_t *a) {
  * @param[in] v2 Pointer to the second polynomial
  */
 void PQCLEAN_HQC128_CLEAN_vect_mul(uint64_t *o, const uint64_t *v1, const uint64_t *v2) {
-    uint64_t stack[VEC_N_SIZE_64 << 3] = {0};
-    uint64_t o_karat[VEC_N_SIZE_64 << 1] = {0};
+    static uint64_t stack[VEC_N_SIZE_64 << 3];
+    static uint64_t o_karat[VEC_N_SIZE_64 << 1];
+
+    memset(stack, 0, sizeof(stack));
+    memset(o_karat, 0, sizeof(o_karat));
 
     karatsuba(o_karat, v1, v2, VEC_N_SIZE_64, stack);
     reduce(o, o_karat);

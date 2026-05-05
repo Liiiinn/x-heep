@@ -46,11 +46,13 @@ int PQCLEAN_HQC128_CLEAN_crypto_kem_keypair(uint8_t *pk, uint8_t *sk) {
  */
 int PQCLEAN_HQC128_CLEAN_crypto_kem_enc(uint8_t *ct, uint8_t *ss, const uint8_t *pk) {
 
-    uint8_t theta[SHAKE256_512_BYTES] = {0};
+    uint8_t theta[SHAKE256_512_BYTES] __attribute__((aligned(4))) = {0};
     uint64_t u[VEC_N_SIZE_64] = {0};
     uint64_t v[VEC_N1N2_SIZE_64] = {0};
-    uint8_t mc[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES] = {0};
-    uint8_t tmp[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES] = {0};
+    uint8_t mc[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES]
+        __attribute__((aligned(4))) = {0};
+    uint8_t tmp[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES]
+        __attribute__((aligned(4))) = {0};
     uint8_t *m = tmp;
     uint8_t *salt = tmp + VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES;
     shake256incctx shake256state;
@@ -96,11 +98,13 @@ int PQCLEAN_HQC128_CLEAN_crypto_kem_dec(uint8_t *ss, const uint8_t *ct, const ui
     uint64_t v[VEC_N1N2_SIZE_64] = {0};
     const uint8_t *pk = sk + SEED_BYTES + VEC_K_SIZE_BYTES;
     uint8_t sigma[VEC_K_SIZE_BYTES] = {0};
-    uint8_t theta[SHAKE256_512_BYTES] = {0};
+    uint8_t theta[SHAKE256_512_BYTES] __attribute__((aligned(4))) = {0};
     uint64_t u2[VEC_N_SIZE_64] = {0};
     uint64_t v2[VEC_N1N2_SIZE_64] = {0};
-    uint8_t mc[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES] = {0};
-    uint8_t tmp[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES] = {0};
+    uint8_t mc[VEC_K_SIZE_BYTES + VEC_N_SIZE_BYTES + VEC_N1N2_SIZE_BYTES]
+        __attribute__((aligned(4))) = {0};
+    uint8_t tmp[VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES + SALT_SIZE_BYTES]
+        __attribute__((aligned(4))) = {0};
     uint8_t *m = tmp;
     uint8_t *salt = tmp + VEC_K_SIZE_BYTES + PUBLIC_KEY_BYTES;
     shake256incctx shake256state;

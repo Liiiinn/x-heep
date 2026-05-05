@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "fips202.h"
+#include "hqc_keccak_backend.h"
 
 #ifndef HQC_USE_KECCAK_DMA
 #define HQC_USE_KECCAK_DMA 1
@@ -152,7 +153,8 @@ static void KeccakF1600_StatePermute(uint64_t *state) {
     uint64_t keccak_start_cycles = hqc_read_cycle64();
 
 #if HQC_USE_KECCAK_DMA
-    if (hqc_keccak_dma_permute(state)) {
+    if (!hqc_keccak_backend_raw_dma_is_suppressed() &&
+        hqc_keccak_dma_permute(state)) {
         g_keccak_cycles += (hqc_read_cycle64() - keccak_start_cycles);
         g_keccak_calls++;
         return;
@@ -429,6 +431,7 @@ void hqc_keccak_profile_reset(void) {
     g_keccak_calls = 0;
     g_keccak_dma_calls = 0;
     g_keccak_dma_fallbacks = 0;
+    hqc_keccak_backend_profile_reset();
 }
 
 uint64_t hqc_keccak_profile_get_cycles(void) {

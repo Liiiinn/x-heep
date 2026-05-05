@@ -1,4 +1,6 @@
 #include "shake_ds.h"
+#include "domains.h"
+#include "hqc_keccak_backend.h"
 
 
 /**
@@ -19,7 +21,11 @@
  * @param[in] inlen length of input in bytes
  * @param[in] domain byte for domain separation
  */
-void PQCLEAN_HQC128_CLEAN_shake256_512_ds(shake256incctx *state, uint8_t *output, const uint8_t *input, size_t inlen, uint8_t domain) {
+static void shake256_512_ds_software(shake256incctx *state,
+                                      uint8_t *output,
+                                      const uint8_t *input,
+                                      size_t inlen,
+                                      uint8_t domain) {
     /* Init state */
     shake256_inc_init(state);
 
@@ -37,4 +43,23 @@ void PQCLEAN_HQC128_CLEAN_shake256_512_ds(shake256incctx *state, uint8_t *output
 
     /* Release ctx */
     shake256_inc_ctx_release(state);
+}
+
+void PQCLEAN_HQC128_CLEAN_shake256_512_ds(shake256incctx *state, uint8_t *output, const uint8_t *input, size_t inlen, uint8_t domain) {
+#if HQC_USE_KECCAK_SPONGE_DMA
+    if (domain == G_FCT_DOMAIN || domain == K_FCT_DOMAIN) {
+        if (hqc_sponge_dma_shake256_512(output, input, inlen, domain) == 0) {
+            return;
+        }
+
+        /* Keep G/K fallback unambiguous: if sponge DMA fails, compute this
+         * call with software Keccak instead of silently using raw DMA. */
+        hqc_keccak_backend_set_raw_dma_suppressed(true);
+        shake256_512_ds_software(state, output, input, inlen, domain);
+        hqc_keccak_backend_set_raw_dma_suppressed(false);
+        return;
+    }
+#endif
+
+    shake256_512_ds_software(state, output, input, inlen, domain);
 }

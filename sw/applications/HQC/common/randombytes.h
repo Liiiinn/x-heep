@@ -19,6 +19,7 @@ extern "C" {
  */
 #define randombytes     PQCLEAN_randombytes
 int randombytes(uint8_t *output, size_t n);
+int randombytes_seedrng(void);
 
 #ifdef __cplusplus
 }

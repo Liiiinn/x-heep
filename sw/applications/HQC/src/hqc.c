@@ -7,6 +7,7 @@
 #include "shake_prng.h"
 #include "vector.h"
 #include <stdint.h>
+#include <string.h>
 /**
  * @file hqc.c
  * @brief Implementation of hqc.h
@@ -76,13 +77,18 @@ void PQCLEAN_HQC128_CLEAN_hqc_pke_keygen(uint8_t *pk, uint8_t *sk) {
  */
 void PQCLEAN_HQC128_CLEAN_hqc_pke_encrypt(uint64_t *u, uint64_t *v, uint8_t *m, uint8_t *theta, const uint8_t *pk) {
     seedexpander_state vec_seedexpander;
-    uint64_t h[VEC_N_SIZE_64] = {0};
-    uint64_t s[VEC_N_SIZE_64] = {0};
+    static uint64_t h[VEC_N_SIZE_64];
+    static uint64_t s[VEC_N_SIZE_64];
     uint64_t r1[VEC_N_SIZE_64] = {0};
     uint64_t r2[VEC_N_SIZE_64] = {0};
     uint64_t e[VEC_N_SIZE_64] = {0};
-    uint64_t tmp1[VEC_N_SIZE_64] = {0};
-    uint64_t tmp2[VEC_N_SIZE_64] = {0};
+    static uint64_t tmp1[VEC_N_SIZE_64];
+    static uint64_t tmp2[VEC_N_SIZE_64];
+
+    memset(h, 0, sizeof(h));
+    memset(s, 0, sizeof(s));
+    memset(tmp1, 0, sizeof(tmp1));
+    memset(tmp2, 0, sizeof(tmp2));
 
     // Create seed_expander from theta
     PQCLEAN_HQC128_CLEAN_seedexpander_init(&vec_seedexpander, theta, SEED_BYTES);
