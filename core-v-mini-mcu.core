@@ -123,6 +123,15 @@ filesets:
     - hw/ip_examples/keccak_dma/rtl/keccak_dma_wrapper.sv
     file_type: systemVerilogSource
 
+  keccak-sponge-dma-rtl:
+    files:
+    - hw/ip_examples/keccak_sponge_dma/rtl/keccak_sponge_reg_pkg.sv
+    - hw/ip_examples/keccak_sponge_dma/rtl/keccak_sponge_reg_top.sv
+    - hw/ip_examples/keccak_sponge_dma/rtl/keccak_sponge_dma.sv
+    - hw/ip_examples/keccak_sponge_dma/rtl/keccak_sponge_top.sv
+    - hw/ip_examples/keccak_sponge_dma/rtl/keccak_sponge_dma_wrapper.sv
+    file_type: systemVerilogSource
+
   ip-asic:
     depend:
     - technology::prim_mytech
@@ -340,6 +349,7 @@ targets:
     - tool_vcs? (tb-sv)
     - tool_xcelium? (tb-sv)
     - "!integrated_heep? (x_heep_system)"
+    - keccak-sponge-dma-rtl
     toplevel:
     - tool_modelsim? (tb_top)
     - tool_vcs? (tb_top)
@@ -424,6 +434,7 @@ targets:
     default_tool: verilator
     filesets_append:
     - tb-utils
+    - keccak-sponge-dma-rtl
     - tool_verilator? (tb-sc-verilator)
     - "!integrated_heep? (x_heep_system)"
     toplevel:
@@ -465,6 +476,8 @@ targets:
     filesets_append:
     - x_heep_system
     - rtl-fpga
+    - keccak-dma-rtl
+    - keccak-sponge-dma-rtl
     parameters:
     - SYNTHESIS=true
     - REMOVE_OBI_FIFO
@@ -485,6 +498,7 @@ targets:
     - x_heep_system
     - rtl-fpga
     - keccak-dma-rtl
+    - keccak-sponge-dma-rtl
     parameters:
     - SYNTHESIS=true
     - REMOVE_OBI_FIFO
