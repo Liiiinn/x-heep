@@ -3,7 +3,8 @@ param(
     [string]$Config = "D:\UNI2\FINAL\nexys4-bscan.cfg",
     [int]$Channel = 0,
     [int]$Port = 13333,
-    [string]$BindAddress = "127.0.0.1"
+    [string]$BindAddress = "127.0.0.1",
+    [switch]$KillExisting
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,15 +24,24 @@ Write-Host "[nexys-bscan] GDB port: $Port"
 Write-Host "[nexys-bscan] Bind address: $BindAddress"
 Write-Host "[nexys-bscan] If OpenOCD cannot open the FTDI device, use Zadig on Interface A only."
 
+$stopScript = Join-Path $PSScriptRoot "nexys_stop_openocd_windows.ps1"
+if ($KillExisting) {
+    if (Test-Path -LiteralPath $stopScript) {
+        & $stopScript -Ports @($Port, 4444, 6666)
+    } else {
+        Get-Process openocd -ErrorAction SilentlyContinue | Stop-Process -Force
+    }
+}
+
 $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if ($listener) {
     $owners = $listener | Select-Object -ExpandProperty OwningProcess -Unique
     foreach ($owner in $owners) {
         $proc = Get-Process -Id $owner -ErrorAction SilentlyContinue
         if ($proc) {
-            Write-Warning "Port $Port is already used by PID $owner ($($proc.ProcessName)). Stop it or use -Port with another value."
+            Write-Warning "Port $Port is already used by PID $owner ($($proc.ProcessName)). Re-run with -KillExisting, stop it manually, or use -Port with another value."
         } else {
-            Write-Warning "Port $Port is already used by PID $owner."
+            Write-Warning "Port $Port is already used by PID $owner. Re-run with -KillExisting, stop it manually, or use -Port with another value."
         }
     }
     exit 1

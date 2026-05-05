@@ -48,6 +48,12 @@ cd D:\UNI2\FINAL
 .\nexys_bscan_openocd_windows.ps1
 ```
 
+If a previous OpenOCD instance is still occupying the ports:
+
+```powershell
+.\nexys_bscan_openocd_windows.ps1 -KillExisting
+```
+
 If your board exposes JTAG on FTDI channel 1 instead of channel 0:
 
 ```powershell
@@ -64,6 +70,17 @@ make app PROJECT=hello_world TARGET=nexys-a7-100t LINKER=on_chip
 ```
 
 The ELF stays in WSL. GDB uses the Windows stdio bridge to reach OpenOCD.
+Before connecting, the script automatically releases stale Windows bridge
+clients that are still occupying the OpenOCD GDB port.
+
+If you plan to reconnect often, load without auto-running:
+
+```sh
+GDB_AUTO_CONTINUE=0 ./scripts/nexys_gdb_connect_bridge.sh
+```
+
+Then run `continue` manually in GDB. Once the program is running, reconnecting
+requires restarting OpenOCD or resetting the CPU first.
 The default GDB port is `13333` because some Windows/WSL setups reserve the
 classic OpenOCD port range around `3333`.
 
