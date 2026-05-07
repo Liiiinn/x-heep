@@ -22,87 +22,87 @@ module keccak_sponge_top #(
     output logic intr_o
 );
 
-    keccak_sponge_reg2hw_t reg2hw;
-    keccak_sponge_hw2reg_t hw2reg;
-    logic start_pulse;
-    logic ctrl_q_d;
-    logic core_busy;
-    logic core_done;
-    logic core_error;
-    logic core_intr;
-    logic [31:0] core_last_op_cycles;
-    logic [31:0] core_last_core_cycles;
-    logic [31:0] core_op_count;
-    logic [31:0] core_last_core_perms;
+  keccak_sponge_reg2hw_t reg2hw;
+  keccak_sponge_hw2reg_t hw2reg;
+  logic start_pulse;
+  logic ctrl_q_d;
+  logic core_busy;
+  logic core_done;
+  logic core_error;
+  logic core_intr;
+  logic [31:0] core_last_op_cycles;
+  logic [31:0] core_last_core_cycles;
+  logic [31:0] core_op_count;
+  logic [31:0] core_last_core_perms;
 
-    keccak_sponge_reg_top #(
-        .reg_req_t(reg_req_t),
-        .reg_rsp_t(reg_rsp_t)
-    ) i_reg_top (
-        .clk_i    (clk_i),
-        .rst_ni   (rst_ni),
-        .reg_req_i(reg_req_i),
-        .reg_rsp_o(reg_rsp_o),
-        .reg2hw   (reg2hw),
-        .hw2reg   (hw2reg),
-        .devmode_i(1'b1)
-    );
+  keccak_sponge_reg_top #(
+      .reg_req_t(reg_req_t),
+      .reg_rsp_t(reg_rsp_t)
+  ) i_reg_top (
+      .clk_i    (clk_i),
+      .rst_ni   (rst_ni),
+      .reg_req_i(reg_req_i),
+      .reg_rsp_o(reg_rsp_o),
+      .reg2hw   (reg2hw),
+      .hw2reg   (hw2reg),
+      .devmode_i(1'b1)
+  );
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
-            ctrl_q_d <= 1'b0;
-        end else begin
-            ctrl_q_d <= reg2hw.ctrl.q;
-        end
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      ctrl_q_d <= 1'b0;
+    end else begin
+      ctrl_q_d <= reg2hw.ctrl.q;
     end
+  end
 
-    assign start_pulse = reg2hw.ctrl.q & ~ctrl_q_d;
+  assign start_pulse = reg2hw.ctrl.q & ~ctrl_q_d;
 
-    assign hw2reg.status.busy.d = core_busy;
-    assign hw2reg.status.busy.de = 1'b1;
-    assign hw2reg.status.done.d = core_done;
-    assign hw2reg.status.done.de = 1'b1;
-    assign hw2reg.status.error.d = core_error;
-    assign hw2reg.status.error.de = 1'b1;
-    assign hw2reg.last_op_cycles.d = core_last_op_cycles;
-    assign hw2reg.last_op_cycles.de = 1'b1;
-    assign hw2reg.last_core_cycles.d = core_last_core_cycles;
-    assign hw2reg.last_core_cycles.de = 1'b1;
-    assign hw2reg.op_count.d = core_op_count;
-    assign hw2reg.op_count.de = 1'b1;
-    assign hw2reg.last_core_perms.d = core_last_core_perms;
-    assign hw2reg.last_core_perms.de = 1'b1;
+  assign hw2reg.status.busy.d = core_busy;
+  assign hw2reg.status.busy.de = 1'b1;
+  assign hw2reg.status.done.d = core_done;
+  assign hw2reg.status.done.de = 1'b1;
+  assign hw2reg.status.error.d = core_error;
+  assign hw2reg.status.error.de = 1'b1;
+  assign hw2reg.last_op_cycles.d = core_last_op_cycles;
+  assign hw2reg.last_op_cycles.de = 1'b1;
+  assign hw2reg.last_core_cycles.d = core_last_core_cycles;
+  assign hw2reg.last_core_cycles.de = 1'b1;
+  assign hw2reg.op_count.d = core_op_count;
+  assign hw2reg.op_count.de = 1'b1;
+  assign hw2reg.last_core_perms.d = core_last_core_perms;
+  assign hw2reg.last_core_perms.de = 1'b1;
 
-    assign intr_o = core_intr;
+  assign intr_o = core_intr;
 
-    keccak_sponge_dma i_keccak_sponge_dma (
-        .clk       (clk_i),
-        .rst_n     (rst_ni),
-        .start_i   (start_pulse),
-        .src_addr_i(reg2hw.src_addr.q),
-        .dst_addr_i(reg2hw.dst_addr.q),
-        .data_len_i(reg2hw.data_len.q),
-        .out_len_i (reg2hw.out_len.q),
-        .domain_i  (reg2hw.domain.q),
-        .mode_i    (2'd1),
+  keccak_sponge_dma i_keccak_sponge_dma (
+      .clk       (clk_i),
+      .rst_n     (rst_ni),
+      .start_i   (start_pulse),
+      .src_addr_i(reg2hw.src_addr.q),
+      .dst_addr_i(reg2hw.dst_addr.q),
+      .data_len_i(reg2hw.data_len.q),
+      .out_len_i (reg2hw.out_len.q),
+      .domain_i  (reg2hw.domain.q),
+      .mode_i    (2'd1),
 
-        .busy_o            (core_busy),
-        .done_o            (core_done),
-        .error_o           (core_error),
-        .keccak_intr_o     (core_intr),
-        .last_op_cycles_o  (core_last_op_cycles),
-        .last_core_cycles_o(core_last_core_cycles),
-        .op_count_o        (core_op_count),
-        .last_core_perms_o (core_last_core_perms),
+      .busy_o            (core_busy),
+      .done_o            (core_done),
+      .error_o           (core_error),
+      .keccak_intr_o     (core_intr),
+      .last_op_cycles_o  (core_last_op_cycles),
+      .last_core_cycles_o(core_last_core_cycles),
+      .op_count_o        (core_op_count),
+      .last_core_perms_o (core_last_core_perms),
 
-        .obi_req_o   (obi_req_o),
-        .obi_gnt_i   (obi_gnt_i),
-        .obi_we_o    (obi_we_o),
-        .obi_addr_o  (obi_addr_o),
-        .obi_wdata_o (obi_wdata_o),
-        .obi_be_o    (obi_be_o),
-        .obi_rvalid_i(obi_rvalid_i),
-        .obi_rdata_i (obi_rdata_i)
-    );
+      .obi_req_o   (obi_req_o),
+      .obi_gnt_i   (obi_gnt_i),
+      .obi_we_o    (obi_we_o),
+      .obi_addr_o  (obi_addr_o),
+      .obi_wdata_o (obi_wdata_o),
+      .obi_be_o    (obi_be_o),
+      .obi_rvalid_i(obi_rvalid_i),
+      .obi_rdata_i (obi_rdata_i)
+  );
 
 endmodule

@@ -6,100 +6,100 @@
 
 package keccak_reg_pkg;
 
-    // Address widths within the block
-    parameter int BlockAw = 5;
+  // Address widths within the block
+  parameter int BlockAw = 5;
 
-    ////////////////////////////
-    // Typedefs for registers //
-    ////////////////////////////
+  ////////////////////////////
+  // Typedefs for registers //
+  ////////////////////////////
 
-    typedef struct packed {logic [31:0] q;} keccak_reg2hw_src_addr_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_reg2hw_src_addr_reg_t;
 
-    typedef struct packed {logic [31:0] q;} keccak_reg2hw_dst_addr_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_reg2hw_dst_addr_reg_t;
 
-    typedef struct packed {logic [31:0] q;} keccak_reg2hw_data_len_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_reg2hw_data_len_reg_t;
 
-    typedef struct packed {logic q;} keccak_reg2hw_ctrl_reg_t;
+  typedef struct packed {logic q;} keccak_reg2hw_ctrl_reg_t;
 
-    typedef struct packed {
-        struct packed {
-            logic d;
-            logic de;
-        } done;
-        struct packed {
-            logic d;
-            logic de;
-        } busy;
-        struct packed {
-            logic d;
-            logic de;
-        } error;
-    } keccak_hw2reg_status_reg_t;
+  typedef struct packed {
+    struct packed {
+      logic d;
+      logic de;
+    } done;
+    struct packed {
+      logic d;
+      logic de;
+    } busy;
+    struct packed {
+      logic d;
+      logic de;
+    } error;
+  } keccak_hw2reg_status_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_hw2reg_last_op_cycles_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_hw2reg_last_op_cycles_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_hw2reg_last_core_cycles_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_hw2reg_last_core_cycles_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_hw2reg_op_count_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_hw2reg_op_count_reg_t;
 
-    // Register -> HW type
-    typedef struct packed {
-        keccak_reg2hw_src_addr_reg_t src_addr;  // [96:65]
-        keccak_reg2hw_dst_addr_reg_t dst_addr;  // [64:33]
-        keccak_reg2hw_data_len_reg_t data_len;  // [32:1]
-        keccak_reg2hw_ctrl_reg_t ctrl;  // [0:0]
-    } keccak_reg2hw_t;
+  // Register -> HW type
+  typedef struct packed {
+    keccak_reg2hw_src_addr_reg_t src_addr;  // [96:65]
+    keccak_reg2hw_dst_addr_reg_t dst_addr;  // [64:33]
+    keccak_reg2hw_data_len_reg_t data_len;  // [32:1]
+    keccak_reg2hw_ctrl_reg_t ctrl;  // [0:0]
+  } keccak_reg2hw_t;
 
-    // HW -> register type
-    typedef struct packed {
-        keccak_hw2reg_status_reg_t status;  // [104:99]
-        keccak_hw2reg_last_op_cycles_reg_t last_op_cycles;  // [98:66]
-        keccak_hw2reg_last_core_cycles_reg_t last_core_cycles;  // [65:33]
-        keccak_hw2reg_op_count_reg_t op_count;  // [32:0]
-    } keccak_hw2reg_t;
+  // HW -> register type
+  typedef struct packed {
+    keccak_hw2reg_status_reg_t status;  // [104:99]
+    keccak_hw2reg_last_op_cycles_reg_t last_op_cycles;  // [98:66]
+    keccak_hw2reg_last_core_cycles_reg_t last_core_cycles;  // [65:33]
+    keccak_hw2reg_op_count_reg_t op_count;  // [32:0]
+  } keccak_hw2reg_t;
 
-    // Register offsets
-    parameter logic [BlockAw-1:0] KECCAK_SRC_ADDR_OFFSET = 5'h0;
-    parameter logic [BlockAw-1:0] KECCAK_DST_ADDR_OFFSET = 5'h4;
-    parameter logic [BlockAw-1:0] KECCAK_DATA_LEN_OFFSET = 5'h8;
-    parameter logic [BlockAw-1:0] KECCAK_CTRL_OFFSET = 5'hc;
-    parameter logic [BlockAw-1:0] KECCAK_STATUS_OFFSET = 5'h10;
-    parameter logic [BlockAw-1:0] KECCAK_LAST_OP_CYCLES_OFFSET = 5'h14;
-    parameter logic [BlockAw-1:0] KECCAK_LAST_CORE_CYCLES_OFFSET = 5'h18;
-    parameter logic [BlockAw-1:0] KECCAK_OP_COUNT_OFFSET = 5'h1c;
+  // Register offsets
+  parameter logic [BlockAw-1:0] KECCAK_SRC_ADDR_OFFSET = 5'h0;
+  parameter logic [BlockAw-1:0] KECCAK_DST_ADDR_OFFSET = 5'h4;
+  parameter logic [BlockAw-1:0] KECCAK_DATA_LEN_OFFSET = 5'h8;
+  parameter logic [BlockAw-1:0] KECCAK_CTRL_OFFSET = 5'hc;
+  parameter logic [BlockAw-1:0] KECCAK_STATUS_OFFSET = 5'h10;
+  parameter logic [BlockAw-1:0] KECCAK_LAST_OP_CYCLES_OFFSET = 5'h14;
+  parameter logic [BlockAw-1:0] KECCAK_LAST_CORE_CYCLES_OFFSET = 5'h18;
+  parameter logic [BlockAw-1:0] KECCAK_OP_COUNT_OFFSET = 5'h1c;
 
-    // Register index
-    typedef enum int {
-        KECCAK_SRC_ADDR,
-        KECCAK_DST_ADDR,
-        KECCAK_DATA_LEN,
-        KECCAK_CTRL,
-        KECCAK_STATUS,
-        KECCAK_LAST_OP_CYCLES,
-        KECCAK_LAST_CORE_CYCLES,
-        KECCAK_OP_COUNT
-    } keccak_id_e;
+  // Register index
+  typedef enum int {
+    KECCAK_SRC_ADDR,
+    KECCAK_DST_ADDR,
+    KECCAK_DATA_LEN,
+    KECCAK_CTRL,
+    KECCAK_STATUS,
+    KECCAK_LAST_OP_CYCLES,
+    KECCAK_LAST_CORE_CYCLES,
+    KECCAK_OP_COUNT
+  } keccak_id_e;
 
-    // Register width information to check illegal writes
-    parameter logic [3:0] KECCAK_PERMIT[8] = '{
-        4'b1111,  // index[0] KECCAK_SRC_ADDR
-        4'b1111,  // index[1] KECCAK_DST_ADDR
-        4'b1111,  // index[2] KECCAK_DATA_LEN
-        4'b0001,  // index[3] KECCAK_CTRL
-        4'b0001,  // index[4] KECCAK_STATUS
-        4'b1111,  // index[5] KECCAK_LAST_OP_CYCLES
-        4'b1111,  // index[6] KECCAK_LAST_CORE_CYCLES
-        4'b1111  // index[7] KECCAK_OP_COUNT
-    };
+  // Register width information to check illegal writes
+  parameter logic [3:0] KECCAK_PERMIT[8] = '{
+      4'b1111,  // index[0] KECCAK_SRC_ADDR
+      4'b1111,  // index[1] KECCAK_DST_ADDR
+      4'b1111,  // index[2] KECCAK_DATA_LEN
+      4'b0001,  // index[3] KECCAK_CTRL
+      4'b0001,  // index[4] KECCAK_STATUS
+      4'b1111,  // index[5] KECCAK_LAST_OP_CYCLES
+      4'b1111,  // index[6] KECCAK_LAST_CORE_CYCLES
+      4'b1111  // index[7] KECCAK_OP_COUNT
+  };
 
 endpackage
 

@@ -6,121 +6,121 @@
 
 package keccak_sponge_reg_pkg;
 
-    // Address widths within the block
-    parameter int BlockAw = 6;
+  // Address widths within the block
+  parameter int BlockAw = 6;
 
-    ////////////////////////////
-    // Typedefs for registers //
-    ////////////////////////////
+  ////////////////////////////
+  // Typedefs for registers //
+  ////////////////////////////
 
-    typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_src_addr_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_src_addr_reg_t;
 
-    typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_dst_addr_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_dst_addr_reg_t;
 
-    typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_data_len_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_data_len_reg_t;
 
-    typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_out_len_reg_t;
+  typedef struct packed {logic [31:0] q;} keccak_sponge_reg2hw_out_len_reg_t;
 
-    typedef struct packed {logic [7:0] q;} keccak_sponge_reg2hw_domain_reg_t;
+  typedef struct packed {logic [7:0] q;} keccak_sponge_reg2hw_domain_reg_t;
 
-    typedef struct packed {logic q;} keccak_sponge_reg2hw_ctrl_reg_t;
+  typedef struct packed {logic q;} keccak_sponge_reg2hw_ctrl_reg_t;
 
-    typedef struct packed {
-        struct packed {
-            logic d;
-            logic de;
-        } done;
-        struct packed {
-            logic d;
-            logic de;
-        } busy;
-        struct packed {
-            logic d;
-            logic de;
-        } error;
-    } keccak_sponge_hw2reg_status_reg_t;
+  typedef struct packed {
+    struct packed {
+      logic d;
+      logic de;
+    } done;
+    struct packed {
+      logic d;
+      logic de;
+    } busy;
+    struct packed {
+      logic d;
+      logic de;
+    } error;
+  } keccak_sponge_hw2reg_status_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_sponge_hw2reg_last_op_cycles_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_sponge_hw2reg_last_op_cycles_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_sponge_hw2reg_last_core_cycles_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_sponge_hw2reg_last_core_cycles_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_sponge_hw2reg_op_count_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_sponge_hw2reg_op_count_reg_t;
 
-    typedef struct packed {
-        logic [31:0] d;
-        logic        de;
-    } keccak_sponge_hw2reg_last_core_perms_reg_t;
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } keccak_sponge_hw2reg_last_core_perms_reg_t;
 
-    // Register -> HW type
-    typedef struct packed {
-        keccak_sponge_reg2hw_src_addr_reg_t src_addr;  // [136:105]
-        keccak_sponge_reg2hw_dst_addr_reg_t dst_addr;  // [104:73]
-        keccak_sponge_reg2hw_data_len_reg_t data_len;  // [72:41]
-        keccak_sponge_reg2hw_out_len_reg_t out_len;  // [40:9]
-        keccak_sponge_reg2hw_domain_reg_t domain;  // [8:1]
-        keccak_sponge_reg2hw_ctrl_reg_t ctrl;  // [0:0]
-    } keccak_sponge_reg2hw_t;
+  // Register -> HW type
+  typedef struct packed {
+    keccak_sponge_reg2hw_src_addr_reg_t src_addr;  // [136:105]
+    keccak_sponge_reg2hw_dst_addr_reg_t dst_addr;  // [104:73]
+    keccak_sponge_reg2hw_data_len_reg_t data_len;  // [72:41]
+    keccak_sponge_reg2hw_out_len_reg_t out_len;  // [40:9]
+    keccak_sponge_reg2hw_domain_reg_t domain;  // [8:1]
+    keccak_sponge_reg2hw_ctrl_reg_t ctrl;  // [0:0]
+  } keccak_sponge_reg2hw_t;
 
-    // HW -> register type
-    typedef struct packed {
-        keccak_sponge_hw2reg_status_reg_t status;  // [137:132]
-        keccak_sponge_hw2reg_last_op_cycles_reg_t last_op_cycles;  // [131:99]
-        keccak_sponge_hw2reg_last_core_cycles_reg_t last_core_cycles;  // [98:66]
-        keccak_sponge_hw2reg_op_count_reg_t op_count;  // [65:33]
-        keccak_sponge_hw2reg_last_core_perms_reg_t last_core_perms;  // [32:0]
-    } keccak_sponge_hw2reg_t;
+  // HW -> register type
+  typedef struct packed {
+    keccak_sponge_hw2reg_status_reg_t status;  // [137:132]
+    keccak_sponge_hw2reg_last_op_cycles_reg_t last_op_cycles;  // [131:99]
+    keccak_sponge_hw2reg_last_core_cycles_reg_t last_core_cycles;  // [98:66]
+    keccak_sponge_hw2reg_op_count_reg_t op_count;  // [65:33]
+    keccak_sponge_hw2reg_last_core_perms_reg_t last_core_perms;  // [32:0]
+  } keccak_sponge_hw2reg_t;
 
-    // Register offsets
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_SRC_ADDR_OFFSET = 6'h0;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_DST_ADDR_OFFSET = 6'h4;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_DATA_LEN_OFFSET = 6'h8;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_OUT_LEN_OFFSET = 6'hc;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_DOMAIN_OFFSET = 6'h10;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_CTRL_OFFSET = 6'h14;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_STATUS_OFFSET = 6'h18;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_LAST_OP_CYCLES_OFFSET = 6'h1c;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_LAST_CORE_CYCLES_OFFSET = 6'h20;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_OP_COUNT_OFFSET = 6'h24;
-    parameter logic [BlockAw-1:0] KECCAK_SPONGE_LAST_CORE_PERMS_OFFSET = 6'h28;
+  // Register offsets
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_SRC_ADDR_OFFSET = 6'h0;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_DST_ADDR_OFFSET = 6'h4;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_DATA_LEN_OFFSET = 6'h8;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_OUT_LEN_OFFSET = 6'hc;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_DOMAIN_OFFSET = 6'h10;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_CTRL_OFFSET = 6'h14;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_STATUS_OFFSET = 6'h18;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_LAST_OP_CYCLES_OFFSET = 6'h1c;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_LAST_CORE_CYCLES_OFFSET = 6'h20;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_OP_COUNT_OFFSET = 6'h24;
+  parameter logic [BlockAw-1:0] KECCAK_SPONGE_LAST_CORE_PERMS_OFFSET = 6'h28;
 
-    // Register index
-    typedef enum int {
-        KECCAK_SPONGE_SRC_ADDR,
-        KECCAK_SPONGE_DST_ADDR,
-        KECCAK_SPONGE_DATA_LEN,
-        KECCAK_SPONGE_OUT_LEN,
-        KECCAK_SPONGE_DOMAIN,
-        KECCAK_SPONGE_CTRL,
-        KECCAK_SPONGE_STATUS,
-        KECCAK_SPONGE_LAST_OP_CYCLES,
-        KECCAK_SPONGE_LAST_CORE_CYCLES,
-        KECCAK_SPONGE_OP_COUNT,
-        KECCAK_SPONGE_LAST_CORE_PERMS
-    } keccak_sponge_id_e;
+  // Register index
+  typedef enum int {
+    KECCAK_SPONGE_SRC_ADDR,
+    KECCAK_SPONGE_DST_ADDR,
+    KECCAK_SPONGE_DATA_LEN,
+    KECCAK_SPONGE_OUT_LEN,
+    KECCAK_SPONGE_DOMAIN,
+    KECCAK_SPONGE_CTRL,
+    KECCAK_SPONGE_STATUS,
+    KECCAK_SPONGE_LAST_OP_CYCLES,
+    KECCAK_SPONGE_LAST_CORE_CYCLES,
+    KECCAK_SPONGE_OP_COUNT,
+    KECCAK_SPONGE_LAST_CORE_PERMS
+  } keccak_sponge_id_e;
 
-    // Register width information to check illegal writes
-    parameter logic [3:0] KECCAK_SPONGE_PERMIT[11] = '{
-        4'b1111,  // index[ 0] KECCAK_SPONGE_SRC_ADDR
-        4'b1111,  // index[ 1] KECCAK_SPONGE_DST_ADDR
-        4'b1111,  // index[ 2] KECCAK_SPONGE_DATA_LEN
-        4'b1111,  // index[ 3] KECCAK_SPONGE_OUT_LEN
-        4'b0001,  // index[ 4] KECCAK_SPONGE_DOMAIN
-        4'b0001,  // index[ 5] KECCAK_SPONGE_CTRL
-        4'b0001,  // index[ 6] KECCAK_SPONGE_STATUS
-        4'b1111,  // index[ 7] KECCAK_SPONGE_LAST_OP_CYCLES
-        4'b1111,  // index[ 8] KECCAK_SPONGE_LAST_CORE_CYCLES
-        4'b1111,  // index[ 9] KECCAK_SPONGE_OP_COUNT
-        4'b1111  // index[10] KECCAK_SPONGE_LAST_CORE_PERMS
-    };
+  // Register width information to check illegal writes
+  parameter logic [3:0] KECCAK_SPONGE_PERMIT[11] = '{
+      4'b1111,  // index[ 0] KECCAK_SPONGE_SRC_ADDR
+      4'b1111,  // index[ 1] KECCAK_SPONGE_DST_ADDR
+      4'b1111,  // index[ 2] KECCAK_SPONGE_DATA_LEN
+      4'b1111,  // index[ 3] KECCAK_SPONGE_OUT_LEN
+      4'b0001,  // index[ 4] KECCAK_SPONGE_DOMAIN
+      4'b0001,  // index[ 5] KECCAK_SPONGE_CTRL
+      4'b0001,  // index[ 6] KECCAK_SPONGE_STATUS
+      4'b1111,  // index[ 7] KECCAK_SPONGE_LAST_OP_CYCLES
+      4'b1111,  // index[ 8] KECCAK_SPONGE_LAST_CORE_CYCLES
+      4'b1111,  // index[ 9] KECCAK_SPONGE_OP_COUNT
+      4'b1111  // index[10] KECCAK_SPONGE_LAST_CORE_PERMS
+  };
 
 endpackage
 
