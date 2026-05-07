@@ -2,7 +2,7 @@
     bus_type: "onetoM"
     ram_banks: {
         code_and_data: {
-            num: 5
+            num: 7
             sizes: [32]
         }
     }
