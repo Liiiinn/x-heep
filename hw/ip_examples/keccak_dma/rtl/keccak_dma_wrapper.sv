@@ -1,19 +1,19 @@
 module keccak_dma_wrapper #(
-    parameter type reg_req_t  = logic,
-    parameter type reg_rsp_t  = logic,
-    parameter type obi_req_t  = logic,
-    parameter type obi_resp_t = logic
+        parameter type reg_req_t  = logic,
+        parameter type reg_rsp_t  = logic,
+        parameter type obi_req_t  = logic,
+        parameter type obi_resp_t = logic
 ) (
-    input logic clk_i,
-    input logic rst_ni,
+        input logic clk_i,
+        input logic rst_ni,
 
-    input  reg_req_t reg_req_i,
-    output reg_rsp_t reg_rsp_o,
+        input  reg_req_t reg_req_i,
+        output reg_rsp_t reg_rsp_o,
 
-    output obi_req_t  keccak_req_o,
-    input  obi_resp_t keccak_resp_i,
+        output obi_req_t  keccak_req_o,
+        input  obi_resp_t keccak_resp_i,
 
-    output logic keccak_intr_o
+        output logic keccak_intr_o
 );
 
     logic        obi_req;

@@ -15,6 +15,9 @@ module keccak (
     output logic done_o,
     output logic error_o,
     output logic keccak_intr_o,
+    output logic [31:0] last_op_cycles_o,
+    output logic [31:0] last_core_cycles_o,
+    output logic [31:0] op_count_o,
 
     // Minimal OBI-like master interface
     output logic        obi_req_o,
@@ -140,6 +143,13 @@ module keccak (
     logic error_q;
     logic intr_q;
     logic error_set;
+    logic op_active_q;
+    logic core_active_q;
+    logic [31:0] op_cycles_q;
+    logic [31:0] core_cycles_q;
+    logic [31:0] last_op_cycles_q;
+    logic [31:0] last_core_cycles_q;
+    logic [31:0] op_count_q;
 
     genvar w;
     generate
@@ -156,8 +166,8 @@ module keccak (
     assign next_chunk_words_i = bytes_to_words(next_chunk_bytes_i);
 
     assign req_word_idx = (gnt_cnt_q < word_count_q) ?
-                          gnt_cnt_q[WORD_IDX_W-1:0] :
-                          last_word_cnt_q[WORD_IDX_W-1:0];
+                                                    gnt_cnt_q[WORD_IDX_W-1:0] :
+                                                    last_word_cnt_q[WORD_IDX_W-1:0];
     assign rsp_word_idx = rvalid_cnt_q[WORD_IDX_W-1:0];
 
     keccak_data inst_keccak_data (
@@ -363,6 +373,13 @@ module keccak (
             done_q             <= 1'b0;
             error_q            <= 1'b0;
             intr_q             <= 1'b0;
+            op_active_q        <= 1'b0;
+            core_active_q      <= 1'b0;
+            op_cycles_q        <= 32'h0;
+            core_cycles_q      <= 32'h0;
+            last_op_cycles_q   <= 32'h0;
+            last_core_cycles_q <= 32'h0;
+            op_count_q         <= 32'h0;
 
             for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                 din_words[wi] <= 32'h0;
@@ -384,6 +401,10 @@ module keccak (
                 done_q            <= 1'b0;
                 error_q           <= 1'b0;
                 intr_q            <= 1'b0;
+                op_active_q       <= 1'b1;
+                core_active_q     <= 1'b0;
+                op_cycles_q       <= 32'h0;
+                core_cycles_q     <= 32'h0;
 
                 for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                     din_words[wi] <= 32'h0;
@@ -404,11 +425,38 @@ module keccak (
             end else if (state_q == ST_DONE) begin
                 done_q <= 1'b1;
                 intr_q <= 1'b1;
+                if (op_active_q) begin
+                    last_op_cycles_q <= op_cycles_q + 32'h1;
+                    last_core_cycles_q <= core_cycles_q;
+                    op_count_q <= op_count_q + 32'h1;
+                end
+                op_active_q   <= 1'b0;
+                core_active_q <= 1'b0;
             end
 
             if (error_set) begin
                 error_q <= 1'b1;
                 intr_q  <= 1'b1;
+                if (op_active_q) begin
+                    last_op_cycles_q <= op_cycles_q + 32'h1;
+                    last_core_cycles_q <= core_cycles_q;
+                    op_count_q <= op_count_q + 32'h1;
+                end
+                op_active_q   <= 1'b0;
+                core_active_q <= 1'b0;
+            end
+
+            if (op_active_q && !error_set && (state_q != ST_DONE)) begin
+                op_cycles_q <= op_cycles_q + 32'h1;
+            end
+
+            if (core_start) begin
+                core_active_q <= 1'b1;
+                core_cycles_q <= core_cycles_q + 32'h1;
+            end else if (core_active_q && !core_ready) begin
+                core_cycles_q <= core_cycles_q + 32'h1;
+            end else if (core_active_q && core_ready) begin
+                core_active_q <= 1'b0;
             end
 
             if (cnt_clr) begin
@@ -454,10 +502,13 @@ module keccak (
         end
     end
 
-    assign busy_o        = (state_q != ST_IDLE) && (state_q != ST_DONE) && (state_q != ST_ERROR);
-    assign done_o        = done_q;
-    assign error_o       = error_q;
-    assign keccak_intr_o = intr_q;
+    assign busy_o             = (state_q != ST_IDLE) && (state_q != ST_DONE) && (state_q != ST_ERROR);
+    assign done_o             = done_q;
+    assign error_o            = error_q;
+    assign keccak_intr_o      = intr_q;
+    assign last_op_cycles_o   = last_op_cycles_q;
+    assign last_core_cycles_o = last_core_cycles_q;
+    assign op_count_o         = op_count_q;
 
     // Trace support for verilator.
     initial begin

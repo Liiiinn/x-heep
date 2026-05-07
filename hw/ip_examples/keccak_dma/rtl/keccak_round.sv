@@ -35,8 +35,8 @@ module keccak_round (
             for (x = 0; x <= 4; x++) begin : loop_x
                 for (i = 0; i <= LANE - 1; i++) begin : loop_i
                     assign theta_out[y][x][i] = theta_in[y][x][i] ^ 
-                                                        sum_sheet[(x + 4) % 5][i] ^ 
-                                                        sum_sheet[(x + 1) % 5][(i + LANE - 1) % LANE];
+                                            sum_sheet[(x + 4) % 5][i] ^ 
+                                            sum_sheet[(x + 1) % 5][(i + LANE - 1) % LANE];
                 end
             end
         end

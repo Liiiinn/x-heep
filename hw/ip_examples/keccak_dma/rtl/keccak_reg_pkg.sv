@@ -36,6 +36,21 @@ package keccak_reg_pkg;
         } error;
     } keccak_hw2reg_status_reg_t;
 
+    typedef struct packed {
+        logic [31:0] d;
+        logic        de;
+    } keccak_hw2reg_last_op_cycles_reg_t;
+
+    typedef struct packed {
+        logic [31:0] d;
+        logic        de;
+    } keccak_hw2reg_last_core_cycles_reg_t;
+
+    typedef struct packed {
+        logic [31:0] d;
+        logic        de;
+    } keccak_hw2reg_op_count_reg_t;
+
     // Register -> HW type
     typedef struct packed {
         keccak_reg2hw_src_addr_reg_t src_addr;  // [96:65]
@@ -46,7 +61,10 @@ package keccak_reg_pkg;
 
     // HW -> register type
     typedef struct packed {
-        keccak_hw2reg_status_reg_t status;  // [5:0]
+        keccak_hw2reg_status_reg_t status;  // [104:99]
+        keccak_hw2reg_last_op_cycles_reg_t last_op_cycles;  // [98:66]
+        keccak_hw2reg_last_core_cycles_reg_t last_core_cycles;  // [65:33]
+        keccak_hw2reg_op_count_reg_t op_count;  // [32:0]
     } keccak_hw2reg_t;
 
     // Register offsets
@@ -55,6 +73,9 @@ package keccak_reg_pkg;
     parameter logic [BlockAw-1:0] KECCAK_DATA_LEN_OFFSET = 5'h8;
     parameter logic [BlockAw-1:0] KECCAK_CTRL_OFFSET = 5'hc;
     parameter logic [BlockAw-1:0] KECCAK_STATUS_OFFSET = 5'h10;
+    parameter logic [BlockAw-1:0] KECCAK_LAST_OP_CYCLES_OFFSET = 5'h14;
+    parameter logic [BlockAw-1:0] KECCAK_LAST_CORE_CYCLES_OFFSET = 5'h18;
+    parameter logic [BlockAw-1:0] KECCAK_OP_COUNT_OFFSET = 5'h1c;
 
     // Register index
     typedef enum int {
@@ -62,16 +83,22 @@ package keccak_reg_pkg;
         KECCAK_DST_ADDR,
         KECCAK_DATA_LEN,
         KECCAK_CTRL,
-        KECCAK_STATUS
+        KECCAK_STATUS,
+        KECCAK_LAST_OP_CYCLES,
+        KECCAK_LAST_CORE_CYCLES,
+        KECCAK_OP_COUNT
     } keccak_id_e;
 
     // Register width information to check illegal writes
-    parameter logic [3:0] KECCAK_PERMIT[5] = '{
+    parameter logic [3:0] KECCAK_PERMIT[8] = '{
         4'b1111,  // index[0] KECCAK_SRC_ADDR
         4'b1111,  // index[1] KECCAK_DST_ADDR
         4'b1111,  // index[2] KECCAK_DATA_LEN
         4'b0001,  // index[3] KECCAK_CTRL
-        4'b0001  // index[4] KECCAK_STATUS
+        4'b0001,  // index[4] KECCAK_STATUS
+        4'b1111,  // index[5] KECCAK_LAST_OP_CYCLES
+        4'b1111,  // index[6] KECCAK_LAST_CORE_CYCLES
+        4'b1111  // index[7] KECCAK_OP_COUNT
     };
 
 endpackage
