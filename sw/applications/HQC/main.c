@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief HQC-128 Performance Profiling Framework
+ * @brief HQC Performance Profiling Framework
  */
 
 #include <stdio.h>
@@ -76,6 +76,12 @@ typedef struct {
     uint32_t keygen_raw_dma_fallbacks;
     uint32_t encaps_raw_dma_fallbacks;
     uint32_t decaps_raw_dma_fallbacks;
+    uint32_t keygen_raw_dma_hw_op_cycles;
+    uint32_t encaps_raw_dma_hw_op_cycles;
+    uint32_t decaps_raw_dma_hw_op_cycles;
+    uint32_t keygen_raw_dma_hw_core_cycles;
+    uint32_t encaps_raw_dma_hw_core_cycles;
+    uint32_t decaps_raw_dma_hw_core_cycles;
     uint32_t keygen_sponge_dma_calls;
     uint32_t encaps_sponge_dma_calls;
     uint32_t decaps_sponge_dma_calls;
@@ -85,14 +91,23 @@ typedef struct {
     uint32_t keygen_sponge_dma_cycles;
     uint32_t encaps_sponge_dma_cycles;
     uint32_t decaps_sponge_dma_cycles;
+    uint32_t keygen_sponge_dma_hw_op_cycles;
+    uint32_t encaps_sponge_dma_hw_op_cycles;
+    uint32_t decaps_sponge_dma_hw_op_cycles;
+    uint32_t keygen_sponge_dma_hw_core_cycles;
+    uint32_t encaps_sponge_dma_hw_core_cycles;
+    uint32_t decaps_sponge_dma_hw_core_cycles;
+    uint32_t keygen_sponge_dma_hw_core_perms;
+    uint32_t encaps_sponge_dma_hw_core_perms;
+    uint32_t decaps_sponge_dma_hw_core_perms;
 } perf_stats_t;
 
 // Keep large KEM buffers in .bss instead of stack.
-static uint8_t pk[PQCLEAN_HQC128_CLEAN_CRYPTO_PUBLICKEYBYTES];
-static uint8_t sk[PQCLEAN_HQC128_CLEAN_CRYPTO_SECRETKEYBYTES];
-static uint8_t ct[PQCLEAN_HQC128_CLEAN_CRYPTO_CIPHERTEXTBYTES];
-static uint8_t ss_encaps[PQCLEAN_HQC128_CLEAN_CRYPTO_BYTES];
-static uint8_t ss_decaps[PQCLEAN_HQC128_CLEAN_CRYPTO_BYTES];
+static uint8_t pk[HQC_CRYPTO_PUBLICKEYBYTES];
+static uint8_t sk[HQC_CRYPTO_SECRETKEYBYTES];
+static uint8_t ct[HQC_CRYPTO_CIPHERTEXTBYTES];
+static uint8_t ss_encaps[HQC_CRYPTO_BYTES];
+static uint8_t ss_decaps[HQC_CRYPTO_BYTES];
 
 // ============================================================================
 // Utility functions
@@ -143,21 +158,26 @@ static void print_stage_profile(const char *stage) {
            stage,
            (unsigned long)((uint32_t)hqc_keccak_profile_get_cycles()),
            (unsigned long)hqc_keccak_profile_get_calls());
-    printf("[*] %s Raw DMA    : %lu calls, %lu fallbacks\r\n",
+    printf("[*] %s Raw DMA    : %lu calls, %lu fallbacks, hw_op=%lu, hw_core=%lu\r\n",
            stage,
            (unsigned long)hqc_keccak_profile_get_dma_calls(),
-           (unsigned long)hqc_keccak_profile_get_dma_fallbacks());
-    printf("[*] %s Sponge DMA : %lu calls, %lu fallbacks, %lu cycles, last_ret=%ld status=0x%08lx\r\n",
+           (unsigned long)hqc_keccak_profile_get_dma_fallbacks(),
+           (unsigned long)((uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles()),
+           (unsigned long)((uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles()));
+    printf("[*] %s Sponge DMA : %lu calls, %lu fallbacks, sw=%lu, hw_op=%lu, hw_core=%lu, hw_perms=%lu, last_ret=%ld status=0x%08lx\r\n",
            stage,
            (unsigned long)hqc_sponge_dma_profile_get_calls(),
            (unsigned long)hqc_sponge_dma_profile_get_fallbacks(),
            (unsigned long)((uint32_t)hqc_sponge_dma_profile_get_cycles()),
+           (unsigned long)((uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles()),
+           (unsigned long)((uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles()),
+           (unsigned long)hqc_sponge_dma_profile_get_hw_core_perms(),
            (long)hqc_sponge_dma_profile_get_last_ret(),
            (unsigned long)hqc_sponge_dma_profile_get_last_status());
 }
 
 int main(void) {
-    printf("\r\n=== HQC-128 Profiling on X-HEEP ===\r\n\r\n");
+    printf("\r\n=== %s Profiling on X-HEEP ===\r\n\r\n", HQC_CRYPTO_ALGNAME);
     printf("[.] Profile mode: %s (HQC_PROFILE_STAGE=%d)\r\n", profile_stage_name(HQC_PROFILE_STAGE), HQC_PROFILE_STAGE);
     printf("[.] Keccak backend: %s\r\n", hqc_keccak_backend_name());
     printf("[.] Raw DMA base:    0x%08lx (enabled=%d)\r\n",
@@ -200,7 +220,7 @@ int main(void) {
         fflush(stdout);
         hqc_keccak_profile_reset();
         start = read_cycle64();
-        rc = PQCLEAN_HQC128_CLEAN_crypto_kem_keypair(pk, sk);
+        rc = hqc_crypto_kem_keypair(pk, sk);
         end = read_cycle64();
         if (rc != 0) {
             printf("[!] KeyGen failed, rc=%d\r\n", rc);
@@ -211,9 +231,14 @@ int main(void) {
         stats.keygen_keccak_calls = hqc_keccak_profile_get_calls();
         stats.keygen_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
         stats.keygen_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
+        stats.keygen_raw_dma_hw_op_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles();
+        stats.keygen_raw_dma_hw_core_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles();
         stats.keygen_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
         stats.keygen_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
         stats.keygen_sponge_dma_cycles = (uint32_t)hqc_sponge_dma_profile_get_cycles();
+        stats.keygen_sponge_dma_hw_op_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles();
+        stats.keygen_sponge_dma_hw_core_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles();
+        stats.keygen_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
         printf("[*] KeyGen        : %lu cycles\r\n", (unsigned long)stats.keygen_cycles);
         print_stage_profile("KeyGen");
         fflush(stdout);
@@ -221,7 +246,7 @@ int main(void) {
 
     if (HQC_PROFILE_STAGE == HQC_STAGE_ENCAP_ONLY || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
         // Generate prerequisites without measuring them in single-stage modes.
-        rc = PQCLEAN_HQC128_CLEAN_crypto_kem_keypair(pk, sk);
+        rc = hqc_crypto_kem_keypair(pk, sk);
         if (rc != 0) {
             printf("[!] Setup KeyGen failed, rc=%d\r\n", rc);
             return 1;
@@ -234,7 +259,7 @@ int main(void) {
         fflush(stdout);
         hqc_keccak_profile_reset();
         start = read_cycle64();
-        rc = PQCLEAN_HQC128_CLEAN_crypto_kem_enc(ct, ss_encaps, pk);
+        rc = hqc_crypto_kem_enc(ct, ss_encaps, pk);
         end = read_cycle64();
         if (rc != 0) {
             printf("[!] Encapsulation failed, rc=%d\r\n", rc);
@@ -245,9 +270,14 @@ int main(void) {
         stats.encaps_keccak_calls = hqc_keccak_profile_get_calls();
         stats.encaps_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
         stats.encaps_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
+        stats.encaps_raw_dma_hw_op_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles();
+        stats.encaps_raw_dma_hw_core_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles();
         stats.encaps_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
         stats.encaps_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
         stats.encaps_sponge_dma_cycles = (uint32_t)hqc_sponge_dma_profile_get_cycles();
+        stats.encaps_sponge_dma_hw_op_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles();
+        stats.encaps_sponge_dma_hw_core_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles();
+        stats.encaps_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
         printf("[*] Encapsulation : %lu cycles\r\n", (unsigned long)stats.encaps_cycles);
         print_stage_profile("Encap");
         fflush(stdout);
@@ -255,7 +285,7 @@ int main(void) {
 
     if (HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
         // Decapsulation requires a valid ciphertext/shared-secret context.
-        rc = PQCLEAN_HQC128_CLEAN_crypto_kem_enc(ct, ss_encaps, pk);
+        rc = hqc_crypto_kem_enc(ct, ss_encaps, pk);
         if (rc != 0) {
             printf("[!] Setup Encapsulation failed, rc=%d\r\n", rc);
             return 1;
@@ -268,7 +298,7 @@ int main(void) {
         fflush(stdout);
         hqc_keccak_profile_reset();
         start = read_cycle64();
-        rc = PQCLEAN_HQC128_CLEAN_crypto_kem_dec(ss_decaps, ct, sk);
+        rc = hqc_crypto_kem_dec(ss_decaps, ct, sk);
         end = read_cycle64();
         if (rc != 0) {
             printf("[!] Decapsulation failed, rc=%d\r\n", rc);
@@ -279,9 +309,14 @@ int main(void) {
         stats.decaps_keccak_calls = hqc_keccak_profile_get_calls();
         stats.decaps_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
         stats.decaps_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
+        stats.decaps_raw_dma_hw_op_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles();
+        stats.decaps_raw_dma_hw_core_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles();
         stats.decaps_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
         stats.decaps_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
         stats.decaps_sponge_dma_cycles = (uint32_t)hqc_sponge_dma_profile_get_cycles();
+        stats.decaps_sponge_dma_hw_op_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles();
+        stats.decaps_sponge_dma_hw_core_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles();
+        stats.decaps_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
         printf("[*] Decapsulation : %lu cycles\r\n", (unsigned long)stats.decaps_cycles);
         print_stage_profile("Decap");
         fflush(stdout);
@@ -290,7 +325,7 @@ int main(void) {
     if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
         // STEP 5: Correctness check
         printf("\r\n--- Correctness Check ---\r\n");
-        if (compare_arrays(ss_encaps, ss_decaps, PQCLEAN_HQC128_CLEAN_CRYPTO_BYTES)) {
+        if (compare_arrays(ss_encaps, ss_decaps, HQC_CRYPTO_BYTES)) {
             printf("Shared Secret Verification: PASS\r\n");
         } else {
             printf("Shared Secret Verification: FAIL\r\n");
@@ -304,24 +339,36 @@ int main(void) {
     uint32_t total_keccak_calls = stats.keygen_keccak_calls + stats.encaps_keccak_calls + stats.decaps_keccak_calls;
     uint32_t total_raw_dma_calls = stats.keygen_raw_dma_calls + stats.encaps_raw_dma_calls + stats.decaps_raw_dma_calls;
     uint32_t total_raw_dma_fallbacks = stats.keygen_raw_dma_fallbacks + stats.encaps_raw_dma_fallbacks + stats.decaps_raw_dma_fallbacks;
+    uint32_t total_raw_dma_hw_op_cycles = stats.keygen_raw_dma_hw_op_cycles + stats.encaps_raw_dma_hw_op_cycles + stats.decaps_raw_dma_hw_op_cycles;
+    uint32_t total_raw_dma_hw_core_cycles = stats.keygen_raw_dma_hw_core_cycles + stats.encaps_raw_dma_hw_core_cycles + stats.decaps_raw_dma_hw_core_cycles;
     uint32_t total_sponge_dma_calls = stats.keygen_sponge_dma_calls + stats.encaps_sponge_dma_calls + stats.decaps_sponge_dma_calls;
     uint32_t total_sponge_dma_fallbacks = stats.keygen_sponge_dma_fallbacks + stats.encaps_sponge_dma_fallbacks + stats.decaps_sponge_dma_fallbacks;
     uint32_t total_sponge_dma_cycles = stats.keygen_sponge_dma_cycles + stats.encaps_sponge_dma_cycles + stats.decaps_sponge_dma_cycles;
+    uint32_t total_sponge_dma_hw_op_cycles = stats.keygen_sponge_dma_hw_op_cycles + stats.encaps_sponge_dma_hw_op_cycles + stats.decaps_sponge_dma_hw_op_cycles;
+    uint32_t total_sponge_dma_hw_core_cycles = stats.keygen_sponge_dma_hw_core_cycles + stats.encaps_sponge_dma_hw_core_cycles + stats.decaps_sponge_dma_hw_core_cycles;
+    uint32_t total_sponge_dma_hw_core_perms = stats.keygen_sponge_dma_hw_core_perms + stats.encaps_sponge_dma_hw_core_perms + stats.decaps_sponge_dma_hw_core_perms;
     printf("Total KEM Operations Cycles: %lu\r\n", (unsigned long)total_cycles);
     printf("Total Keccak Cycles: %lu\r\n", (unsigned long)total_keccak_cycles);
     printf("Total Keccak Permutations: %lu\r\n", (unsigned long)total_keccak_calls);
     printf("Total Raw DMA Calls/Fallbacks: %lu/%lu\r\n",
            (unsigned long)total_raw_dma_calls,
            (unsigned long)total_raw_dma_fallbacks);
-    printf("Total Sponge DMA Calls/Fallbacks/Cycles: %lu/%lu/%lu\r\n",
+    printf("Total Raw DMA HW Op/Core Cycles: %lu/%lu\r\n",
+           (unsigned long)total_raw_dma_hw_op_cycles,
+           (unsigned long)total_raw_dma_hw_core_cycles);
+    printf("Total Sponge DMA Calls/Fallbacks/SW Cycles: %lu/%lu/%lu\r\n",
            (unsigned long)total_sponge_dma_calls,
            (unsigned long)total_sponge_dma_fallbacks,
            (unsigned long)total_sponge_dma_cycles);
+    printf("Total Sponge DMA HW Op/Core Cycles/Perms: %lu/%lu/%lu\r\n",
+           (unsigned long)total_sponge_dma_hw_op_cycles,
+           (unsigned long)total_sponge_dma_hw_core_cycles,
+           (unsigned long)total_sponge_dma_hw_core_perms);
 
     printf("\r\n=== Profiling Complete ===\r\n\r\n");
 
     if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
-        if (memcmp(ss_encaps, ss_decaps, PQCLEAN_HQC128_CLEAN_CRYPTO_BYTES) == 0) {
+        if (memcmp(ss_encaps, ss_decaps, HQC_CRYPTO_BYTES) == 0) {
             printf("\r\n>>> SUCCESS: Shared secrets perfectly match! <<<\r\n");
         } else {
             printf("\r\n>>> ERROR: Decapsulation failed! <<<\r\n");

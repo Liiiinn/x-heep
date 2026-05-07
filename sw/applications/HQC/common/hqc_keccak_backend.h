@@ -35,6 +35,9 @@ int hqc_sponge_dma_shake256_512(uint8_t *output,
 uint32_t hqc_sponge_dma_profile_get_calls(void);
 uint32_t hqc_sponge_dma_profile_get_fallbacks(void);
 uint64_t hqc_sponge_dma_profile_get_cycles(void);
+uint64_t hqc_sponge_dma_profile_get_hw_op_cycles(void);
+uint64_t hqc_sponge_dma_profile_get_hw_core_cycles(void);
+uint32_t hqc_sponge_dma_profile_get_hw_core_perms(void);
 int32_t hqc_sponge_dma_profile_get_last_ret(void);
 uint32_t hqc_sponge_dma_profile_get_last_status(void);
 

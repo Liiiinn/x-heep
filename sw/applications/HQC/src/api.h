@@ -23,5 +23,14 @@ int PQCLEAN_HQC128_CLEAN_crypto_kem_enc(uint8_t *ct, uint8_t *ss, const uint8_t 
 
 int PQCLEAN_HQC128_CLEAN_crypto_kem_dec(uint8_t *ss, const uint8_t *ct, const uint8_t *sk);
 
+#define HQC_CRYPTO_ALGNAME PQCLEAN_HQC128_CLEAN_CRYPTO_ALGNAME
+#define HQC_CRYPTO_SECRETKEYBYTES PQCLEAN_HQC128_CLEAN_CRYPTO_SECRETKEYBYTES
+#define HQC_CRYPTO_PUBLICKEYBYTES PQCLEAN_HQC128_CLEAN_CRYPTO_PUBLICKEYBYTES
+#define HQC_CRYPTO_BYTES PQCLEAN_HQC128_CLEAN_CRYPTO_BYTES
+#define HQC_CRYPTO_CIPHERTEXTBYTES PQCLEAN_HQC128_CLEAN_CRYPTO_CIPHERTEXTBYTES
+
+#define hqc_crypto_kem_keypair PQCLEAN_HQC128_CLEAN_crypto_kem_keypair
+#define hqc_crypto_kem_enc PQCLEAN_HQC128_CLEAN_crypto_kem_enc
+#define hqc_crypto_kem_dec PQCLEAN_HQC128_CLEAN_crypto_kem_dec
 
 #endif

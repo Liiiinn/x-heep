@@ -171,5 +171,7 @@ uint32_t hqc_keccak_profile_get_calls(void);
 /* DMA linkage helpers for the FIPS202 Keccak permutation path. */
 uint32_t hqc_keccak_profile_get_dma_calls(void);
 uint32_t hqc_keccak_profile_get_dma_fallbacks(void);
+uint64_t hqc_keccak_profile_get_dma_hw_op_cycles(void);
+uint64_t hqc_keccak_profile_get_dma_hw_core_cycles(void);
 
 #endif

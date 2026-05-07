@@ -17,6 +17,9 @@ static bool g_raw_dma_suppressed = false;
 static uint32_t g_sponge_dma_calls = 0;
 static uint32_t g_sponge_dma_fallbacks = 0;
 static uint64_t g_sponge_dma_cycles = 0;
+static uint64_t g_sponge_dma_hw_op_cycles = 0;
+static uint64_t g_sponge_dma_hw_core_cycles = 0;
+static uint32_t g_sponge_dma_hw_core_perms = 0;
 static int32_t g_sponge_dma_last_ret = 0;
 static uint32_t g_sponge_dma_last_status = 0;
 
@@ -53,6 +56,9 @@ void hqc_keccak_backend_profile_reset(void) {
     g_sponge_dma_calls = 0;
     g_sponge_dma_fallbacks = 0;
     g_sponge_dma_cycles = 0;
+    g_sponge_dma_hw_op_cycles = 0;
+    g_sponge_dma_hw_core_cycles = 0;
+    g_sponge_dma_hw_core_perms = 0;
     g_sponge_dma_last_ret = 0;
     g_sponge_dma_last_status = 0;
     g_raw_dma_suppressed = false;
@@ -128,6 +134,10 @@ int hqc_sponge_dma_shake256_512(uint8_t *output,
         return -1;
     }
 
+    g_sponge_dma_hw_op_cycles += keccak_sponge_dma_get_last_op_cycles(&g_sponge_dma);
+    g_sponge_dma_hw_core_cycles += keccak_sponge_dma_get_last_core_cycles(&g_sponge_dma);
+    g_sponge_dma_hw_core_perms += keccak_sponge_dma_get_last_core_perms(&g_sponge_dma);
+
     if (dma_output != output) {
         memcpy(output, g_sponge_dma_output, HQC_SPONGE_DMA_OUT_BYTES);
     }
@@ -152,6 +162,18 @@ uint32_t hqc_sponge_dma_profile_get_fallbacks(void) {
 
 uint64_t hqc_sponge_dma_profile_get_cycles(void) {
     return g_sponge_dma_cycles;
+}
+
+uint64_t hqc_sponge_dma_profile_get_hw_op_cycles(void) {
+    return g_sponge_dma_hw_op_cycles;
+}
+
+uint64_t hqc_sponge_dma_profile_get_hw_core_cycles(void) {
+    return g_sponge_dma_hw_core_cycles;
+}
+
+uint32_t hqc_sponge_dma_profile_get_hw_core_perms(void) {
+    return g_sponge_dma_hw_core_perms;
 }
 
 int32_t hqc_sponge_dma_profile_get_last_ret(void) {
