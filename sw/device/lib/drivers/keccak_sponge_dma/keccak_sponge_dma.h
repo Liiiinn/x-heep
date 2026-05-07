@@ -31,6 +31,10 @@ typedef struct keccak_sponge_dma {
 
 void keccak_sponge_dma_init(keccak_sponge_dma_t *keccak, uintptr_t base_addr);
 uint32_t keccak_sponge_dma_get_status(const keccak_sponge_dma_t *keccak);
+uint32_t keccak_sponge_dma_get_last_op_cycles(const keccak_sponge_dma_t *keccak);
+uint32_t keccak_sponge_dma_get_last_core_cycles(const keccak_sponge_dma_t *keccak);
+uint32_t keccak_sponge_dma_get_op_count(const keccak_sponge_dma_t *keccak);
+uint32_t keccak_sponge_dma_get_last_core_perms(const keccak_sponge_dma_t *keccak);
 bool keccak_sponge_dma_is_busy(const keccak_sponge_dma_t *keccak);
 bool keccak_sponge_dma_is_done(const keccak_sponge_dma_t *keccak);
 bool keccak_sponge_dma_has_error(const keccak_sponge_dma_t *keccak);

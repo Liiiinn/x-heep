@@ -35,6 +35,9 @@ keccak_dma_result_t keccak_dma_start(const keccak_dma_t *keccak,
                                      uintptr_t dst_addr,
                                      uint32_t data_len_bytes);
 uint32_t keccak_dma_get_status(const keccak_dma_t *keccak);
+uint32_t keccak_dma_get_last_op_cycles(const keccak_dma_t *keccak);
+uint32_t keccak_dma_get_last_core_cycles(const keccak_dma_t *keccak);
+uint32_t keccak_dma_get_op_count(const keccak_dma_t *keccak);
 bool keccak_dma_is_busy(const keccak_dma_t *keccak);
 bool keccak_dma_is_done(const keccak_dma_t *keccak);
 bool keccak_dma_has_error(const keccak_dma_t *keccak);

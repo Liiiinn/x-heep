@@ -34,6 +34,18 @@ uint32_t keccak_dma_get_status(const keccak_dma_t *keccak) {
     return mmio_region_read32(keccak->base_addr, KECCAK_DMA_STATUS_REG_OFFSET);
 }
 
+uint32_t keccak_dma_get_last_op_cycles(const keccak_dma_t *keccak) {
+    return mmio_region_read32(keccak->base_addr, KECCAK_DMA_LAST_OP_CYCLES_REG_OFFSET);
+}
+
+uint32_t keccak_dma_get_last_core_cycles(const keccak_dma_t *keccak) {
+    return mmio_region_read32(keccak->base_addr, KECCAK_DMA_LAST_CORE_CYCLES_REG_OFFSET);
+}
+
+uint32_t keccak_dma_get_op_count(const keccak_dma_t *keccak) {
+    return mmio_region_read32(keccak->base_addr, KECCAK_DMA_OP_COUNT_REG_OFFSET);
+}
+
 bool keccak_dma_is_busy(const keccak_dma_t *keccak) {
     return (keccak_dma_get_status(keccak) >> KECCAK_DMA_STATUS_BUSY_BIT) & 0x1u;
 }
