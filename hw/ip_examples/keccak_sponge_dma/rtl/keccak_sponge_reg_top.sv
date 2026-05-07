@@ -10,7 +10,7 @@
 module keccak_sponge_reg_top #(
     parameter type reg_req_t = logic,
     parameter type reg_rsp_t = logic,
-    parameter int AW = 5
+    parameter int AW = 6
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -88,6 +88,10 @@ module keccak_sponge_reg_top #(
     logic status_done_qs;
     logic status_busy_qs;
     logic status_error_qs;
+    logic [31:0] last_op_cycles_qs;
+    logic [31:0] last_core_cycles_qs;
+    logic [31:0] op_count_qs;
+    logic [31:0] last_core_perms_qs;
 
     // Register instances
     // R[src_addr]: V(False)
@@ -328,9 +332,113 @@ module keccak_sponge_reg_top #(
     );
 
 
+    // R[last_op_cycles]: V(False)
+
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RO"),
+        .RESVAL  (32'h0)
+    ) u_last_op_cycles (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
+
+        .we(1'b0),
+        .wd('0),
+
+        // from internal hardware
+        .de(hw2reg.last_op_cycles.de),
+        .d (hw2reg.last_op_cycles.d),
+
+        // to internal hardware
+        .qe(),
+        .q (),
+
+        // to register interface (read)
+        .qs(last_op_cycles_qs)
+    );
 
 
-    logic [6:0] addr_hit;
+    // R[last_core_cycles]: V(False)
+
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RO"),
+        .RESVAL  (32'h0)
+    ) u_last_core_cycles (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
+
+        .we(1'b0),
+        .wd('0),
+
+        // from internal hardware
+        .de(hw2reg.last_core_cycles.de),
+        .d (hw2reg.last_core_cycles.d),
+
+        // to internal hardware
+        .qe(),
+        .q (),
+
+        // to register interface (read)
+        .qs(last_core_cycles_qs)
+    );
+
+
+    // R[op_count]: V(False)
+
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RO"),
+        .RESVAL  (32'h0)
+    ) u_op_count (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
+
+        .we(1'b0),
+        .wd('0),
+
+        // from internal hardware
+        .de(hw2reg.op_count.de),
+        .d (hw2reg.op_count.d),
+
+        // to internal hardware
+        .qe(),
+        .q (),
+
+        // to register interface (read)
+        .qs(op_count_qs)
+    );
+
+
+    // R[last_core_perms]: V(False)
+
+    prim_subreg #(
+        .DW      (32),
+        .SWACCESS("RO"),
+        .RESVAL  (32'h0)
+    ) u_last_core_perms (
+        .clk_i (clk_i),
+        .rst_ni(rst_ni),
+
+        .we(1'b0),
+        .wd('0),
+
+        // from internal hardware
+        .de(hw2reg.last_core_perms.de),
+        .d (hw2reg.last_core_perms.d),
+
+        // to internal hardware
+        .qe(),
+        .q (),
+
+        // to register interface (read)
+        .qs(last_core_perms_qs)
+    );
+
+
+
+
+    logic [10:0] addr_hit;
     always_comb begin
         addr_hit = '0;
         addr_hit[0] = (reg_addr == KECCAK_SPONGE_SRC_ADDR_OFFSET);
@@ -340,6 +448,10 @@ module keccak_sponge_reg_top #(
         addr_hit[4] = (reg_addr == KECCAK_SPONGE_DOMAIN_OFFSET);
         addr_hit[5] = (reg_addr == KECCAK_SPONGE_CTRL_OFFSET);
         addr_hit[6] = (reg_addr == KECCAK_SPONGE_STATUS_OFFSET);
+        addr_hit[7] = (reg_addr == KECCAK_SPONGE_LAST_OP_CYCLES_OFFSET);
+        addr_hit[8] = (reg_addr == KECCAK_SPONGE_LAST_CORE_CYCLES_OFFSET);
+        addr_hit[9] = (reg_addr == KECCAK_SPONGE_OP_COUNT_OFFSET);
+        addr_hit[10] = (reg_addr == KECCAK_SPONGE_LAST_CORE_PERMS_OFFSET);
     end
 
     assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0;
@@ -347,13 +459,17 @@ module keccak_sponge_reg_top #(
     // Check sub-word write is permitted
     always_comb begin
         wr_err = (reg_we &
-              ((addr_hit[0] & (|(KECCAK_SPONGE_PERMIT[0] & ~reg_be))) |
-               (addr_hit[1] & (|(KECCAK_SPONGE_PERMIT[1] & ~reg_be))) |
-               (addr_hit[2] & (|(KECCAK_SPONGE_PERMIT[2] & ~reg_be))) |
-               (addr_hit[3] & (|(KECCAK_SPONGE_PERMIT[3] & ~reg_be))) |
-               (addr_hit[4] & (|(KECCAK_SPONGE_PERMIT[4] & ~reg_be))) |
-               (addr_hit[5] & (|(KECCAK_SPONGE_PERMIT[5] & ~reg_be))) |
-               (addr_hit[6] & (|(KECCAK_SPONGE_PERMIT[6] & ~reg_be)))));
+                    ((addr_hit[ 0] & (|(KECCAK_SPONGE_PERMIT[ 0] & ~reg_be))) |
+                        (addr_hit[ 1] & (|(KECCAK_SPONGE_PERMIT[ 1] & ~reg_be))) |
+                        (addr_hit[ 2] & (|(KECCAK_SPONGE_PERMIT[ 2] & ~reg_be))) |
+                        (addr_hit[ 3] & (|(KECCAK_SPONGE_PERMIT[ 3] & ~reg_be))) |
+                        (addr_hit[ 4] & (|(KECCAK_SPONGE_PERMIT[ 4] & ~reg_be))) |
+                        (addr_hit[ 5] & (|(KECCAK_SPONGE_PERMIT[ 5] & ~reg_be))) |
+                        (addr_hit[ 6] & (|(KECCAK_SPONGE_PERMIT[ 6] & ~reg_be))) |
+                        (addr_hit[ 7] & (|(KECCAK_SPONGE_PERMIT[ 7] & ~reg_be))) |
+                        (addr_hit[ 8] & (|(KECCAK_SPONGE_PERMIT[ 8] & ~reg_be))) |
+                        (addr_hit[ 9] & (|(KECCAK_SPONGE_PERMIT[ 9] & ~reg_be))) |
+                        (addr_hit[10] & (|(KECCAK_SPONGE_PERMIT[10] & ~reg_be)))));
     end
 
     assign src_addr_we = addr_hit[0] & reg_we & !reg_error;
@@ -408,6 +524,22 @@ module keccak_sponge_reg_top #(
                 reg_rdata_next[2] = status_error_qs;
             end
 
+            addr_hit[7]: begin
+                reg_rdata_next[31:0] = last_op_cycles_qs;
+            end
+
+            addr_hit[8]: begin
+                reg_rdata_next[31:0] = last_core_cycles_qs;
+            end
+
+            addr_hit[9]: begin
+                reg_rdata_next[31:0] = op_count_qs;
+            end
+
+            addr_hit[10]: begin
+                reg_rdata_next[31:0] = last_core_perms_qs;
+            end
+
             default: begin
                 reg_rdata_next = '1;
             end
@@ -429,7 +561,7 @@ module keccak_sponge_reg_top #(
 endmodule
 
 module keccak_sponge_reg_top_intf #(
-    parameter  int AW = 5,
+    parameter  int AW = 6,
     localparam int DW = 32
 ) (
     input logic clk_i,
@@ -476,3 +608,5 @@ module keccak_sponge_reg_top_intf #(
     );
 
 endmodule
+
+

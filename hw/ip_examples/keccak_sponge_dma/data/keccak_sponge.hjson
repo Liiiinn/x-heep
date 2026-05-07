@@ -106,6 +106,58 @@
                     desc: "Set by hardware on protocol/timeout/configuration failure"
                 }
             ]
+        },
+        {
+            name: "LAST_OP_CYCLES",
+            desc: "Cycles from accepted start to transaction completion or error",
+            swaccess: "ro",
+            hwaccess: "hwo",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "LAST_OP_CYCLES",
+                    desc: "Last transaction hardware operation cycles"
+                }
+            ]
+        },
+        {
+            name: "LAST_CORE_CYCLES",
+            desc: "Accumulated Keccak core active cycles in the last transaction",
+            swaccess: "ro",
+            hwaccess: "hwo",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "LAST_CORE_CYCLES",
+                    desc: "Last transaction Keccak core active cycles"
+                }
+            ]
+        },
+        {
+            name: "OP_COUNT",
+            desc: "Number of completed or errored hardware transactions",
+            swaccess: "ro",
+            hwaccess: "hwo",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "OP_COUNT",
+                    desc: "Hardware transaction counter"
+                }
+            ]
+        },
+        {
+            name: "LAST_CORE_PERMS",
+            desc: "Number of Keccak core permutations in the last transaction",
+            swaccess: "ro",
+            hwaccess: "hwo",
+            fields: [
+                {
+                    bits: "31:0",
+                    name: "LAST_CORE_PERMS",
+                    desc: "Last transaction Keccak permutation count"
+                }
+            ]
         }
     ]
 }

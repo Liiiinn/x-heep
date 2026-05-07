@@ -18,6 +18,10 @@ module keccak_sponge_dma (
     output logic done_o,
     output logic error_o,
     output logic keccak_intr_o,
+    output logic [31:0] last_op_cycles_o,
+    output logic [31:0] last_core_cycles_o,
+    output logic [31:0] op_count_o,
+    output logic [31:0] last_core_perms_o,
 
     // Minimal OBI-like master interface
     output logic        obi_req_o,
@@ -99,8 +103,8 @@ module keccak_sponge_dma (
     endfunction
 
     function automatic logic [31:0] pad_rate_word(
-        input int unsigned word_idx, input logic [31:0] word, input logic [31:0] domain_offset,
-        input logic [7:0] domain);
+            input int unsigned word_idx, input logic [31:0] word, input logic [31:0] domain_offset,
+            input logic [7:0] domain);
         logic [31:0] padded_word;
         begin
             padded_word = word;
@@ -213,6 +217,15 @@ module keccak_sponge_dma (
     logic intr_q;
     logic error_set;
     logic final_block_q;
+    logic op_active_q;
+    logic core_active_q;
+    logic [31:0] op_cycles_q;
+    logic [31:0] core_cycles_q;
+    logic [31:0] core_perms_q;
+    logic [31:0] last_op_cycles_q;
+    logic [31:0] last_core_cycles_q;
+    logic [31:0] op_count_q;
+    logic [31:0] last_core_perms_q;
 
     genvar w;
     generate
@@ -663,6 +676,15 @@ module keccak_sponge_dma (
             error_q            <= 1'b0;
             intr_q             <= 1'b0;
             final_block_q      <= 1'b0;
+            op_active_q        <= 1'b0;
+            core_active_q      <= 1'b0;
+            op_cycles_q        <= 32'h0;
+            core_cycles_q      <= 32'h0;
+            core_perms_q       <= 32'h0;
+            last_op_cycles_q   <= 32'h0;
+            last_core_cycles_q <= 32'h0;
+            op_count_q         <= 32'h0;
+            last_core_perms_q  <= 32'h0;
 
             for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                 din_words[wi] <= 32'h0;
@@ -690,6 +712,11 @@ module keccak_sponge_dma (
                 error_q <= 1'b0;
                 intr_q <= 1'b0;
                 final_block_q <= 1'b0;
+                op_active_q <= 1'b1;
+                core_active_q <= 1'b0;
+                op_cycles_q <= 32'h0;
+                core_cycles_q <= 32'h0;
+                core_perms_q <= 32'h0;
 
                 for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                     din_words[wi] <= 32'h0;
@@ -714,6 +741,11 @@ module keccak_sponge_dma (
                 error_q <= 1'b0;
                 intr_q <= 1'b0;
                 final_block_q <= 1'b0;
+                op_active_q <= 1'b1;
+                core_active_q <= 1'b0;
+                op_cycles_q <= 32'h0;
+                core_cycles_q <= 32'h0;
+                core_perms_q <= 32'h0;
 
                 for (int wi = 0; wi < KECCAK_BLOCK_WORDS; wi++) begin
                     din_words[wi] <= 32'h0;
@@ -768,11 +800,41 @@ module keccak_sponge_dma (
             end else if (state_q == ST_DONE) begin
                 done_q <= 1'b1;
                 intr_q <= 1'b1;
+                if (op_active_q) begin
+                    last_op_cycles_q <= op_cycles_q + 32'h1;
+                    last_core_cycles_q <= core_cycles_q;
+                    last_core_perms_q <= core_perms_q;
+                    op_count_q <= op_count_q + 32'h1;
+                end
+                op_active_q   <= 1'b0;
+                core_active_q <= 1'b0;
             end
 
             if (error_set) begin
                 error_q <= 1'b1;
                 intr_q  <= 1'b1;
+                if (op_active_q) begin
+                    last_op_cycles_q <= op_cycles_q + 32'h1;
+                    last_core_cycles_q <= core_cycles_q;
+                    last_core_perms_q <= core_perms_q;
+                    op_count_q <= op_count_q + 32'h1;
+                end
+                op_active_q   <= 1'b0;
+                core_active_q <= 1'b0;
+            end
+
+            if (op_active_q && !error_set && (state_q != ST_DONE)) begin
+                op_cycles_q <= op_cycles_q + 32'h1;
+            end
+
+            if (core_start) begin
+                core_active_q <= 1'b1;
+                core_cycles_q <= core_cycles_q + 32'h1;
+                core_perms_q  <= core_perms_q + 32'h1;
+            end else if (core_active_q && !core_ready) begin
+                core_cycles_q <= core_cycles_q + 32'h1;
+            end else if (core_active_q && core_ready) begin
+                core_active_q <= 1'b0;
             end
 
             if (cnt_clr) begin
@@ -839,10 +901,14 @@ module keccak_sponge_dma (
         end
     end
 
-    assign busy_o        = (state_q != ST_IDLE) && (state_q != ST_DONE) && (state_q != ST_ERROR);
-    assign done_o        = done_q;
-    assign error_o       = error_q;
-    assign keccak_intr_o = intr_q;
+    assign busy_o             = (state_q != ST_IDLE) && (state_q != ST_DONE) && (state_q != ST_ERROR);
+    assign done_o             = done_q;
+    assign error_o            = error_q;
+    assign keccak_intr_o      = intr_q;
+    assign last_op_cycles_o   = last_op_cycles_q;
+    assign last_core_cycles_o = last_core_cycles_q;
+    assign op_count_o         = op_count_q;
+    assign last_core_perms_o  = last_core_perms_q;
 
     // Trace support for verilator.
     initial begin
