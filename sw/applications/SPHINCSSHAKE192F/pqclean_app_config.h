@@ -1,0 +1,6 @@
+#ifndef PQCLEAN_APP_CONFIG_H
+#define PQCLEAN_APP_CONFIG_H
+
+#define PQCLEAN_PROFILE_REPS 1
+
+#endif
