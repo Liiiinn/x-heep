@@ -219,6 +219,7 @@ module keccak_sponge_dma (
   logic final_block_q;
   logic op_active_q;
   logic core_active_q;
+  logic core_seen_busy_q;
   logic [31:0] op_cycles_q;
   logic [31:0] core_cycles_q;
   logic [31:0] core_perms_q;
@@ -678,6 +679,7 @@ module keccak_sponge_dma (
       final_block_q      <= 1'b0;
       op_active_q        <= 1'b0;
       core_active_q      <= 1'b0;
+      core_seen_busy_q   <= 1'b0;
       op_cycles_q        <= 32'h0;
       core_cycles_q      <= 32'h0;
       core_perms_q       <= 32'h0;
@@ -714,6 +716,7 @@ module keccak_sponge_dma (
         final_block_q <= 1'b0;
         op_active_q <= 1'b1;
         core_active_q <= 1'b0;
+        core_seen_busy_q <= 1'b0;
         op_cycles_q <= 32'h0;
         core_cycles_q <= 32'h0;
         core_perms_q <= 32'h0;
@@ -743,6 +746,7 @@ module keccak_sponge_dma (
         final_block_q <= 1'b0;
         op_active_q <= 1'b1;
         core_active_q <= 1'b0;
+        core_seen_busy_q <= 1'b0;
         op_cycles_q <= 32'h0;
         core_cycles_q <= 32'h0;
         core_perms_q <= 32'h0;
@@ -806,8 +810,9 @@ module keccak_sponge_dma (
           last_core_perms_q <= core_perms_q;
           op_count_q <= op_count_q + 32'h1;
         end
-        op_active_q   <= 1'b0;
+        op_active_q <= 1'b0;
         core_active_q <= 1'b0;
+        core_seen_busy_q <= 1'b0;
       end
 
       if (error_set) begin
@@ -819,8 +824,9 @@ module keccak_sponge_dma (
           last_core_perms_q <= core_perms_q;
           op_count_q <= op_count_q + 32'h1;
         end
-        op_active_q   <= 1'b0;
+        op_active_q <= 1'b0;
         core_active_q <= 1'b0;
+        core_seen_busy_q <= 1'b0;
       end
 
       if (op_active_q && !error_set && (state_q != ST_DONE)) begin
@@ -829,12 +835,17 @@ module keccak_sponge_dma (
 
       if (core_start) begin
         core_active_q <= 1'b1;
+        core_seen_busy_q <= 1'b0;
         core_cycles_q <= core_cycles_q + 32'h1;
-        core_perms_q  <= core_perms_q + 32'h1;
-      end else if (core_active_q && !core_ready) begin
+        core_perms_q <= core_perms_q + 32'h1;
+      end else if (core_active_q) begin
         core_cycles_q <= core_cycles_q + 32'h1;
-      end else if (core_active_q && core_ready) begin
-        core_active_q <= 1'b0;
+        if (!core_ready) begin
+          core_seen_busy_q <= 1'b1;
+        end else if (core_seen_busy_q) begin
+          core_active_q <= 1'b0;
+          core_seen_busy_q <= 1'b0;
+        end
       end
 
       if (cnt_clr) begin

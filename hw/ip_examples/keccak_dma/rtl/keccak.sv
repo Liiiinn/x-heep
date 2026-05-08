@@ -145,6 +145,7 @@ module keccak (
   logic error_set;
   logic op_active_q;
   logic core_active_q;
+  logic core_seen_busy_q;
   logic [31:0] op_cycles_q;
   logic [31:0] core_cycles_q;
   logic [31:0] last_op_cycles_q;
@@ -375,6 +376,7 @@ module keccak (
       intr_q             <= 1'b0;
       op_active_q        <= 1'b0;
       core_active_q      <= 1'b0;
+      core_seen_busy_q   <= 1'b0;
       op_cycles_q        <= 32'h0;
       core_cycles_q      <= 32'h0;
       last_op_cycles_q   <= 32'h0;
@@ -403,6 +405,7 @@ module keccak (
         intr_q            <= 1'b0;
         op_active_q       <= 1'b1;
         core_active_q     <= 1'b0;
+        core_seen_busy_q  <= 1'b0;
         op_cycles_q       <= 32'h0;
         core_cycles_q     <= 32'h0;
 
@@ -430,8 +433,9 @@ module keccak (
           last_core_cycles_q <= core_cycles_q;
           op_count_q <= op_count_q + 32'h1;
         end
-        op_active_q   <= 1'b0;
+        op_active_q <= 1'b0;
         core_active_q <= 1'b0;
+        core_seen_busy_q <= 1'b0;
       end
 
       if (error_set) begin
@@ -442,8 +446,9 @@ module keccak (
           last_core_cycles_q <= core_cycles_q;
           op_count_q <= op_count_q + 32'h1;
         end
-        op_active_q   <= 1'b0;
+        op_active_q <= 1'b0;
         core_active_q <= 1'b0;
+        core_seen_busy_q <= 1'b0;
       end
 
       if (op_active_q && !error_set && (state_q != ST_DONE)) begin
@@ -451,12 +456,17 @@ module keccak (
       end
 
       if (core_start) begin
-        core_active_q <= 1'b1;
+        core_active_q    <= 1'b1;
+        core_seen_busy_q <= 1'b0;
         core_cycles_q <= core_cycles_q + 32'h1;
-      end else if (core_active_q && !core_ready) begin
+      end else if (core_active_q) begin
         core_cycles_q <= core_cycles_q + 32'h1;
-      end else if (core_active_q && core_ready) begin
-        core_active_q <= 1'b0;
+        if (!core_ready) begin
+          core_seen_busy_q <= 1'b1;
+        end else if (core_seen_busy_q) begin
+          core_active_q <= 1'b0;
+          core_seen_busy_q <= 1'b0;
+        end
       end
 
       if (cnt_clr) begin
