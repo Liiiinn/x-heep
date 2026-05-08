@@ -22,6 +22,14 @@
 #define HQC_PROFILE_STAGE 0
 #endif
 
+#ifndef HQC_PROFILE_REPS
+#define HQC_PROFILE_REPS 3
+#endif
+
+#if HQC_PROFILE_REPS < 1
+#error "HQC_PROFILE_REPS must be at least 1"
+#endif
+
 #ifndef HQC_USE_KECCAK_DMA
 #define HQC_USE_KECCAK_DMA 1
 #endif
@@ -61,45 +69,45 @@ static inline uint64_t read_cycle64(void) {
 }
 
 typedef struct {
-    uint32_t keygen_cycles;
-    uint32_t encaps_cycles;
-    uint32_t decaps_cycles;
-    uint32_t keygen_keccak_cycles;
-    uint32_t encaps_keccak_cycles;
-    uint32_t decaps_keccak_cycles;
-    uint32_t keygen_keccak_calls;
-    uint32_t encaps_keccak_calls;
-    uint32_t decaps_keccak_calls;
-    uint32_t keygen_raw_dma_calls;
-    uint32_t encaps_raw_dma_calls;
-    uint32_t decaps_raw_dma_calls;
-    uint32_t keygen_raw_dma_fallbacks;
-    uint32_t encaps_raw_dma_fallbacks;
-    uint32_t decaps_raw_dma_fallbacks;
-    uint32_t keygen_raw_dma_hw_op_cycles;
-    uint32_t encaps_raw_dma_hw_op_cycles;
-    uint32_t decaps_raw_dma_hw_op_cycles;
-    uint32_t keygen_raw_dma_hw_core_cycles;
-    uint32_t encaps_raw_dma_hw_core_cycles;
-    uint32_t decaps_raw_dma_hw_core_cycles;
-    uint32_t keygen_sponge_dma_calls;
-    uint32_t encaps_sponge_dma_calls;
-    uint32_t decaps_sponge_dma_calls;
-    uint32_t keygen_sponge_dma_fallbacks;
-    uint32_t encaps_sponge_dma_fallbacks;
-    uint32_t decaps_sponge_dma_fallbacks;
-    uint32_t keygen_sponge_dma_cycles;
-    uint32_t encaps_sponge_dma_cycles;
-    uint32_t decaps_sponge_dma_cycles;
-    uint32_t keygen_sponge_dma_hw_op_cycles;
-    uint32_t encaps_sponge_dma_hw_op_cycles;
-    uint32_t decaps_sponge_dma_hw_op_cycles;
-    uint32_t keygen_sponge_dma_hw_core_cycles;
-    uint32_t encaps_sponge_dma_hw_core_cycles;
-    uint32_t decaps_sponge_dma_hw_core_cycles;
-    uint32_t keygen_sponge_dma_hw_core_perms;
-    uint32_t encaps_sponge_dma_hw_core_perms;
-    uint32_t decaps_sponge_dma_hw_core_perms;
+    uint64_t keygen_cycles;
+    uint64_t encaps_cycles;
+    uint64_t decaps_cycles;
+    uint64_t keygen_keccak_cycles;
+    uint64_t encaps_keccak_cycles;
+    uint64_t decaps_keccak_cycles;
+    uint64_t keygen_keccak_calls;
+    uint64_t encaps_keccak_calls;
+    uint64_t decaps_keccak_calls;
+    uint64_t keygen_raw_dma_calls;
+    uint64_t encaps_raw_dma_calls;
+    uint64_t decaps_raw_dma_calls;
+    uint64_t keygen_raw_dma_fallbacks;
+    uint64_t encaps_raw_dma_fallbacks;
+    uint64_t decaps_raw_dma_fallbacks;
+    uint64_t keygen_raw_dma_hw_op_cycles;
+    uint64_t encaps_raw_dma_hw_op_cycles;
+    uint64_t decaps_raw_dma_hw_op_cycles;
+    uint64_t keygen_raw_dma_hw_core_cycles;
+    uint64_t encaps_raw_dma_hw_core_cycles;
+    uint64_t decaps_raw_dma_hw_core_cycles;
+    uint64_t keygen_sponge_dma_calls;
+    uint64_t encaps_sponge_dma_calls;
+    uint64_t decaps_sponge_dma_calls;
+    uint64_t keygen_sponge_dma_fallbacks;
+    uint64_t encaps_sponge_dma_fallbacks;
+    uint64_t decaps_sponge_dma_fallbacks;
+    uint64_t keygen_sponge_dma_cycles;
+    uint64_t encaps_sponge_dma_cycles;
+    uint64_t decaps_sponge_dma_cycles;
+    uint64_t keygen_sponge_dma_hw_op_cycles;
+    uint64_t encaps_sponge_dma_hw_op_cycles;
+    uint64_t decaps_sponge_dma_hw_op_cycles;
+    uint64_t keygen_sponge_dma_hw_core_cycles;
+    uint64_t encaps_sponge_dma_hw_core_cycles;
+    uint64_t decaps_sponge_dma_hw_core_cycles;
+    uint64_t keygen_sponge_dma_hw_core_perms;
+    uint64_t encaps_sponge_dma_hw_core_perms;
+    uint64_t decaps_sponge_dma_hw_core_perms;
 } perf_stats_t;
 
 // Keep large KEM buffers in .bss instead of stack.
@@ -176,9 +184,278 @@ static void print_stage_profile(const char *stage) {
            (unsigned long)hqc_sponge_dma_profile_get_last_status());
 }
 
+#define ADD_FIELD(dst, src, field) ((dst)->field += (src)->field)
+
+static void accumulate_stats(perf_stats_t *dst, const perf_stats_t *src) {
+    ADD_FIELD(dst, src, keygen_cycles);
+    ADD_FIELD(dst, src, encaps_cycles);
+    ADD_FIELD(dst, src, decaps_cycles);
+    ADD_FIELD(dst, src, keygen_keccak_cycles);
+    ADD_FIELD(dst, src, encaps_keccak_cycles);
+    ADD_FIELD(dst, src, decaps_keccak_cycles);
+    ADD_FIELD(dst, src, keygen_keccak_calls);
+    ADD_FIELD(dst, src, encaps_keccak_calls);
+    ADD_FIELD(dst, src, decaps_keccak_calls);
+    ADD_FIELD(dst, src, keygen_raw_dma_calls);
+    ADD_FIELD(dst, src, encaps_raw_dma_calls);
+    ADD_FIELD(dst, src, decaps_raw_dma_calls);
+    ADD_FIELD(dst, src, keygen_raw_dma_fallbacks);
+    ADD_FIELD(dst, src, encaps_raw_dma_fallbacks);
+    ADD_FIELD(dst, src, decaps_raw_dma_fallbacks);
+    ADD_FIELD(dst, src, keygen_raw_dma_hw_op_cycles);
+    ADD_FIELD(dst, src, encaps_raw_dma_hw_op_cycles);
+    ADD_FIELD(dst, src, decaps_raw_dma_hw_op_cycles);
+    ADD_FIELD(dst, src, keygen_raw_dma_hw_core_cycles);
+    ADD_FIELD(dst, src, encaps_raw_dma_hw_core_cycles);
+    ADD_FIELD(dst, src, decaps_raw_dma_hw_core_cycles);
+    ADD_FIELD(dst, src, keygen_sponge_dma_calls);
+    ADD_FIELD(dst, src, encaps_sponge_dma_calls);
+    ADD_FIELD(dst, src, decaps_sponge_dma_calls);
+    ADD_FIELD(dst, src, keygen_sponge_dma_fallbacks);
+    ADD_FIELD(dst, src, encaps_sponge_dma_fallbacks);
+    ADD_FIELD(dst, src, decaps_sponge_dma_fallbacks);
+    ADD_FIELD(dst, src, keygen_sponge_dma_cycles);
+    ADD_FIELD(dst, src, encaps_sponge_dma_cycles);
+    ADD_FIELD(dst, src, decaps_sponge_dma_cycles);
+    ADD_FIELD(dst, src, keygen_sponge_dma_hw_op_cycles);
+    ADD_FIELD(dst, src, encaps_sponge_dma_hw_op_cycles);
+    ADD_FIELD(dst, src, decaps_sponge_dma_hw_op_cycles);
+    ADD_FIELD(dst, src, keygen_sponge_dma_hw_core_cycles);
+    ADD_FIELD(dst, src, encaps_sponge_dma_hw_core_cycles);
+    ADD_FIELD(dst, src, decaps_sponge_dma_hw_core_cycles);
+    ADD_FIELD(dst, src, keygen_sponge_dma_hw_core_perms);
+    ADD_FIELD(dst, src, encaps_sponge_dma_hw_core_perms);
+    ADD_FIELD(dst, src, decaps_sponge_dma_hw_core_perms);
+}
+
+#undef ADD_FIELD
+
+static uint64_t scale_stat(uint64_t value, uint32_t divisor) {
+    return (divisor == 0) ? value : (value / divisor);
+}
+
+static void print_u64_dec(uint64_t value) {
+    char buf[21];
+    int idx = (int)(sizeof(buf) - 1);
+    buf[idx] = '\0';
+
+    if (value == 0) {
+        putchar('0');
+        return;
+    }
+
+    while ((value != 0) && (idx > 0)) {
+        idx--;
+        buf[idx] = (char)('0' + (value % 10u));
+        value /= 10u;
+    }
+
+    printf("%s", &buf[idx]);
+}
+
+static void print_perf_summary(const char *title, const char *label,
+                               const perf_stats_t *stats, uint32_t divisor) {
+    const uint64_t total_cycles =
+        stats->keygen_cycles + stats->encaps_cycles + stats->decaps_cycles;
+    const uint64_t total_keccak_cycles =
+        stats->keygen_keccak_cycles + stats->encaps_keccak_cycles + stats->decaps_keccak_cycles;
+    const uint64_t total_keccak_calls =
+        stats->keygen_keccak_calls + stats->encaps_keccak_calls + stats->decaps_keccak_calls;
+    const uint64_t total_raw_dma_calls =
+        stats->keygen_raw_dma_calls + stats->encaps_raw_dma_calls + stats->decaps_raw_dma_calls;
+    const uint64_t total_raw_dma_fallbacks =
+        stats->keygen_raw_dma_fallbacks + stats->encaps_raw_dma_fallbacks + stats->decaps_raw_dma_fallbacks;
+    const uint64_t total_raw_dma_hw_op_cycles =
+        stats->keygen_raw_dma_hw_op_cycles + stats->encaps_raw_dma_hw_op_cycles + stats->decaps_raw_dma_hw_op_cycles;
+    const uint64_t total_raw_dma_hw_core_cycles =
+        stats->keygen_raw_dma_hw_core_cycles + stats->encaps_raw_dma_hw_core_cycles + stats->decaps_raw_dma_hw_core_cycles;
+    const uint64_t total_sponge_dma_calls =
+        stats->keygen_sponge_dma_calls + stats->encaps_sponge_dma_calls + stats->decaps_sponge_dma_calls;
+    const uint64_t total_sponge_dma_fallbacks =
+        stats->keygen_sponge_dma_fallbacks + stats->encaps_sponge_dma_fallbacks + stats->decaps_sponge_dma_fallbacks;
+    const uint64_t total_sponge_dma_cycles =
+        stats->keygen_sponge_dma_cycles + stats->encaps_sponge_dma_cycles + stats->decaps_sponge_dma_cycles;
+    const uint64_t total_sponge_dma_hw_op_cycles =
+        stats->keygen_sponge_dma_hw_op_cycles + stats->encaps_sponge_dma_hw_op_cycles + stats->decaps_sponge_dma_hw_op_cycles;
+    const uint64_t total_sponge_dma_hw_core_cycles =
+        stats->keygen_sponge_dma_hw_core_cycles + stats->encaps_sponge_dma_hw_core_cycles + stats->decaps_sponge_dma_hw_core_cycles;
+    const uint64_t total_sponge_dma_hw_core_perms =
+        stats->keygen_sponge_dma_hw_core_perms + stats->encaps_sponge_dma_hw_core_perms + stats->decaps_sponge_dma_hw_core_perms;
+
+    printf("\r\n--- %s ---\r\n", title);
+    printf("%s KEM Operations Cycles: ", label);
+    print_u64_dec(scale_stat(total_cycles, divisor));
+    printf("\r\n");
+    printf("%s Keccak Cycles: ", label);
+    print_u64_dec(scale_stat(total_keccak_cycles, divisor));
+    printf("\r\n");
+    printf("%s Keccak Permutations: ", label);
+    print_u64_dec(scale_stat(total_keccak_calls, divisor));
+    printf("\r\n");
+    printf("%s Raw DMA Calls/Fallbacks: ", label);
+    print_u64_dec(scale_stat(total_raw_dma_calls, divisor));
+    printf("/");
+    print_u64_dec(scale_stat(total_raw_dma_fallbacks, divisor));
+    printf("\r\n");
+    printf("%s Raw DMA HW Op/Core Cycles: ", label);
+    print_u64_dec(scale_stat(total_raw_dma_hw_op_cycles, divisor));
+    printf("/");
+    print_u64_dec(scale_stat(total_raw_dma_hw_core_cycles, divisor));
+    printf("\r\n");
+    printf("%s Sponge DMA Calls/Fallbacks/SW Cycles: ", label);
+    print_u64_dec(scale_stat(total_sponge_dma_calls, divisor));
+    printf("/");
+    print_u64_dec(scale_stat(total_sponge_dma_fallbacks, divisor));
+    printf("/");
+    print_u64_dec(scale_stat(total_sponge_dma_cycles, divisor));
+    printf("\r\n");
+    printf("%s Sponge DMA HW Op/Core Cycles/Perms: ", label);
+    print_u64_dec(scale_stat(total_sponge_dma_hw_op_cycles, divisor));
+    printf("/");
+    print_u64_dec(scale_stat(total_sponge_dma_hw_core_cycles, divisor));
+    printf("/");
+    print_u64_dec(scale_stat(total_sponge_dma_hw_core_perms, divisor));
+    printf("\r\n");
+}
+
+static int run_profile_iteration(uint32_t iter, uint32_t reps, perf_stats_t *stats) {
+    uint64_t start, end;
+    int rc;
+
+    memset(stats, 0, sizeof(*stats));
+    randombytes_seedrng();
+
+    printf("\r\n--- Iteration %lu/%lu ---\r\n",
+           (unsigned long)iter,
+           (unsigned long)reps);
+    fflush(stdout);
+
+    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_KEYGEN_ONLY) {
+        printf("[.] Starting KeyGen...\r\n");
+        fflush(stdout);
+        hqc_keccak_profile_reset();
+        start = read_cycle64();
+        rc = hqc_crypto_kem_keypair(pk, sk);
+        end = read_cycle64();
+        if (rc != 0) {
+            printf("[!] KeyGen failed, rc=%d\r\n", rc);
+            return 1;
+        }
+        stats->keygen_cycles = end - start;
+        stats->keygen_keccak_cycles = hqc_keccak_profile_get_cycles();
+        stats->keygen_keccak_calls = hqc_keccak_profile_get_calls();
+        stats->keygen_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
+        stats->keygen_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
+        stats->keygen_raw_dma_hw_op_cycles = hqc_keccak_profile_get_dma_hw_op_cycles();
+        stats->keygen_raw_dma_hw_core_cycles = hqc_keccak_profile_get_dma_hw_core_cycles();
+        stats->keygen_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
+        stats->keygen_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
+        stats->keygen_sponge_dma_cycles = hqc_sponge_dma_profile_get_cycles();
+        stats->keygen_sponge_dma_hw_op_cycles = hqc_sponge_dma_profile_get_hw_op_cycles();
+        stats->keygen_sponge_dma_hw_core_cycles = hqc_sponge_dma_profile_get_hw_core_cycles();
+        stats->keygen_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
+        printf("[*] KeyGen        : ");
+        print_u64_dec(stats->keygen_cycles);
+        printf(" cycles\r\n");
+        print_stage_profile("KeyGen");
+        fflush(stdout);
+    }
+
+    if (HQC_PROFILE_STAGE == HQC_STAGE_ENCAP_ONLY || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
+        rc = hqc_crypto_kem_keypair(pk, sk);
+        if (rc != 0) {
+            printf("[!] Setup KeyGen failed, rc=%d\r\n", rc);
+            return 1;
+        }
+    }
+
+    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_ENCAP_ONLY) {
+        printf("[.] Starting Encapsulation...\r\n");
+        fflush(stdout);
+        hqc_keccak_profile_reset();
+        start = read_cycle64();
+        rc = hqc_crypto_kem_enc(ct, ss_encaps, pk);
+        end = read_cycle64();
+        if (rc != 0) {
+            printf("[!] Encapsulation failed, rc=%d\r\n", rc);
+            return 1;
+        }
+        stats->encaps_cycles = end - start;
+        stats->encaps_keccak_cycles = hqc_keccak_profile_get_cycles();
+        stats->encaps_keccak_calls = hqc_keccak_profile_get_calls();
+        stats->encaps_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
+        stats->encaps_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
+        stats->encaps_raw_dma_hw_op_cycles = hqc_keccak_profile_get_dma_hw_op_cycles();
+        stats->encaps_raw_dma_hw_core_cycles = hqc_keccak_profile_get_dma_hw_core_cycles();
+        stats->encaps_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
+        stats->encaps_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
+        stats->encaps_sponge_dma_cycles = hqc_sponge_dma_profile_get_cycles();
+        stats->encaps_sponge_dma_hw_op_cycles = hqc_sponge_dma_profile_get_hw_op_cycles();
+        stats->encaps_sponge_dma_hw_core_cycles = hqc_sponge_dma_profile_get_hw_core_cycles();
+        stats->encaps_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
+        printf("[*] Encapsulation : ");
+        print_u64_dec(stats->encaps_cycles);
+        printf(" cycles\r\n");
+        print_stage_profile("Encap");
+        fflush(stdout);
+    }
+
+    if (HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
+        rc = hqc_crypto_kem_enc(ct, ss_encaps, pk);
+        if (rc != 0) {
+            printf("[!] Setup Encapsulation failed, rc=%d\r\n", rc);
+            return 1;
+        }
+    }
+
+    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
+        printf("[.] Starting Decapsulation...\r\n");
+        fflush(stdout);
+        hqc_keccak_profile_reset();
+        start = read_cycle64();
+        rc = hqc_crypto_kem_dec(ss_decaps, ct, sk);
+        end = read_cycle64();
+        if (rc != 0) {
+            printf("[!] Decapsulation failed, rc=%d\r\n", rc);
+            return 1;
+        }
+        stats->decaps_cycles = end - start;
+        stats->decaps_keccak_cycles = hqc_keccak_profile_get_cycles();
+        stats->decaps_keccak_calls = hqc_keccak_profile_get_calls();
+        stats->decaps_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
+        stats->decaps_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
+        stats->decaps_raw_dma_hw_op_cycles = hqc_keccak_profile_get_dma_hw_op_cycles();
+        stats->decaps_raw_dma_hw_core_cycles = hqc_keccak_profile_get_dma_hw_core_cycles();
+        stats->decaps_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
+        stats->decaps_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
+        stats->decaps_sponge_dma_cycles = hqc_sponge_dma_profile_get_cycles();
+        stats->decaps_sponge_dma_hw_op_cycles = hqc_sponge_dma_profile_get_hw_op_cycles();
+        stats->decaps_sponge_dma_hw_core_cycles = hqc_sponge_dma_profile_get_hw_core_cycles();
+        stats->decaps_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
+        printf("[*] Decapsulation : ");
+        print_u64_dec(stats->decaps_cycles);
+        printf(" cycles\r\n");
+        print_stage_profile("Decap");
+        fflush(stdout);
+    }
+
+    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
+        printf("\r\n--- Correctness Check ---\r\n");
+        if (compare_arrays(ss_encaps, ss_decaps, HQC_CRYPTO_BYTES)) {
+            printf("Shared Secret Verification: PASS\r\n");
+        } else {
+            printf("Shared Secret Verification: FAIL\r\n");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int main(void) {
     printf("\r\n=== %s Profiling on X-HEEP ===\r\n\r\n", HQC_CRYPTO_ALGNAME);
     printf("[.] Profile mode: %s (HQC_PROFILE_STAGE=%d)\r\n", profile_stage_name(HQC_PROFILE_STAGE), HQC_PROFILE_STAGE);
+    printf("[.] Profile reps: %d (HQC_PROFILE_REPS=%d)\r\n", HQC_PROFILE_REPS, HQC_PROFILE_REPS);
     printf("[.] Keccak backend: %s\r\n", hqc_keccak_backend_name());
     printf("[.] Raw DMA base:    0x%08lx (enabled=%d)\r\n",
            (unsigned long)KECCAK_DMA_START_ADDRESS, HQC_USE_KECCAK_DMA);
@@ -206,174 +483,25 @@ int main(void) {
 #endif
     fflush(stdout);
 
-    perf_stats_t stats = {0};
-
-    uint64_t start, end;
-    int rc;
-
     enable_cycle_counter();
-    randombytes_seedrng();
 
-    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_KEYGEN_ONLY) {
-        // STEP 2: KeyGen profiling
-        printf("[.] Starting KeyGen...\r\n");
-        fflush(stdout);
-        hqc_keccak_profile_reset();
-        start = read_cycle64();
-        rc = hqc_crypto_kem_keypair(pk, sk);
-        end = read_cycle64();
-        if (rc != 0) {
-            printf("[!] KeyGen failed, rc=%d\r\n", rc);
+    perf_stats_t total_stats = {0};
+    for (uint32_t iter = 1; iter <= HQC_PROFILE_REPS; iter++) {
+        perf_stats_t iter_stats = {0};
+        if (run_profile_iteration(iter, HQC_PROFILE_REPS, &iter_stats) != 0) {
+            printf("\r\n>>> ERROR: Profiling iteration %lu failed! <<<\r\n",
+                   (unsigned long)iter);
             return 1;
         }
-        stats.keygen_cycles = (uint32_t)(end - start);
-        stats.keygen_keccak_cycles = (uint32_t)hqc_keccak_profile_get_cycles();
-        stats.keygen_keccak_calls = hqc_keccak_profile_get_calls();
-        stats.keygen_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
-        stats.keygen_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
-        stats.keygen_raw_dma_hw_op_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles();
-        stats.keygen_raw_dma_hw_core_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles();
-        stats.keygen_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
-        stats.keygen_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
-        stats.keygen_sponge_dma_cycles = (uint32_t)hqc_sponge_dma_profile_get_cycles();
-        stats.keygen_sponge_dma_hw_op_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles();
-        stats.keygen_sponge_dma_hw_core_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles();
-        stats.keygen_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
-        printf("[*] KeyGen        : %lu cycles\r\n", (unsigned long)stats.keygen_cycles);
-        print_stage_profile("KeyGen");
-        fflush(stdout);
+        accumulate_stats(&total_stats, &iter_stats);
     }
 
-    if (HQC_PROFILE_STAGE == HQC_STAGE_ENCAP_ONLY || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
-        // Generate prerequisites without measuring them in single-stage modes.
-        rc = hqc_crypto_kem_keypair(pk, sk);
-        if (rc != 0) {
-            printf("[!] Setup KeyGen failed, rc=%d\r\n", rc);
-            return 1;
-        }
-    }
-
-    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_ENCAP_ONLY) {
-        // STEP 3: Encapsulation profiling
-        printf("[.] Starting Encapsulation...\r\n");
-        fflush(stdout);
-        hqc_keccak_profile_reset();
-        start = read_cycle64();
-        rc = hqc_crypto_kem_enc(ct, ss_encaps, pk);
-        end = read_cycle64();
-        if (rc != 0) {
-            printf("[!] Encapsulation failed, rc=%d\r\n", rc);
-            return 1;
-        }
-        stats.encaps_cycles = (uint32_t)(end - start);
-        stats.encaps_keccak_cycles = (uint32_t)hqc_keccak_profile_get_cycles();
-        stats.encaps_keccak_calls = hqc_keccak_profile_get_calls();
-        stats.encaps_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
-        stats.encaps_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
-        stats.encaps_raw_dma_hw_op_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles();
-        stats.encaps_raw_dma_hw_core_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles();
-        stats.encaps_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
-        stats.encaps_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
-        stats.encaps_sponge_dma_cycles = (uint32_t)hqc_sponge_dma_profile_get_cycles();
-        stats.encaps_sponge_dma_hw_op_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles();
-        stats.encaps_sponge_dma_hw_core_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles();
-        stats.encaps_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
-        printf("[*] Encapsulation : %lu cycles\r\n", (unsigned long)stats.encaps_cycles);
-        print_stage_profile("Encap");
-        fflush(stdout);
-    }
-
-    if (HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
-        // Decapsulation requires a valid ciphertext/shared-secret context.
-        rc = hqc_crypto_kem_enc(ct, ss_encaps, pk);
-        if (rc != 0) {
-            printf("[!] Setup Encapsulation failed, rc=%d\r\n", rc);
-            return 1;
-        }
-    }
-
-    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
-        // STEP 4: Decapsulation profiling
-        printf("[.] Starting Decapsulation...\r\n");
-        fflush(stdout);
-        hqc_keccak_profile_reset();
-        start = read_cycle64();
-        rc = hqc_crypto_kem_dec(ss_decaps, ct, sk);
-        end = read_cycle64();
-        if (rc != 0) {
-            printf("[!] Decapsulation failed, rc=%d\r\n", rc);
-            return 1;
-        }
-        stats.decaps_cycles = (uint32_t)(end - start);
-        stats.decaps_keccak_cycles = (uint32_t)hqc_keccak_profile_get_cycles();
-        stats.decaps_keccak_calls = hqc_keccak_profile_get_calls();
-        stats.decaps_raw_dma_calls = hqc_keccak_profile_get_dma_calls();
-        stats.decaps_raw_dma_fallbacks = hqc_keccak_profile_get_dma_fallbacks();
-        stats.decaps_raw_dma_hw_op_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_op_cycles();
-        stats.decaps_raw_dma_hw_core_cycles = (uint32_t)hqc_keccak_profile_get_dma_hw_core_cycles();
-        stats.decaps_sponge_dma_calls = hqc_sponge_dma_profile_get_calls();
-        stats.decaps_sponge_dma_fallbacks = hqc_sponge_dma_profile_get_fallbacks();
-        stats.decaps_sponge_dma_cycles = (uint32_t)hqc_sponge_dma_profile_get_cycles();
-        stats.decaps_sponge_dma_hw_op_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_op_cycles();
-        stats.decaps_sponge_dma_hw_core_cycles = (uint32_t)hqc_sponge_dma_profile_get_hw_core_cycles();
-        stats.decaps_sponge_dma_hw_core_perms = hqc_sponge_dma_profile_get_hw_core_perms();
-        printf("[*] Decapsulation : %lu cycles\r\n", (unsigned long)stats.decaps_cycles);
-        print_stage_profile("Decap");
-        fflush(stdout);
-    }
-
-    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
-        // STEP 5: Correctness check
-        printf("\r\n--- Correctness Check ---\r\n");
-        if (compare_arrays(ss_encaps, ss_decaps, HQC_CRYPTO_BYTES)) {
-            printf("Shared Secret Verification: PASS\r\n");
-        } else {
-            printf("Shared Secret Verification: FAIL\r\n");
-        }
-    }
-
-    // STEP 6: Performance summary
-    printf("\r\n--- Performance Summary ---\r\n");
-    uint32_t total_cycles = stats.keygen_cycles + stats.encaps_cycles + stats.decaps_cycles;
-    uint32_t total_keccak_cycles = stats.keygen_keccak_cycles + stats.encaps_keccak_cycles + stats.decaps_keccak_cycles;
-    uint32_t total_keccak_calls = stats.keygen_keccak_calls + stats.encaps_keccak_calls + stats.decaps_keccak_calls;
-    uint32_t total_raw_dma_calls = stats.keygen_raw_dma_calls + stats.encaps_raw_dma_calls + stats.decaps_raw_dma_calls;
-    uint32_t total_raw_dma_fallbacks = stats.keygen_raw_dma_fallbacks + stats.encaps_raw_dma_fallbacks + stats.decaps_raw_dma_fallbacks;
-    uint32_t total_raw_dma_hw_op_cycles = stats.keygen_raw_dma_hw_op_cycles + stats.encaps_raw_dma_hw_op_cycles + stats.decaps_raw_dma_hw_op_cycles;
-    uint32_t total_raw_dma_hw_core_cycles = stats.keygen_raw_dma_hw_core_cycles + stats.encaps_raw_dma_hw_core_cycles + stats.decaps_raw_dma_hw_core_cycles;
-    uint32_t total_sponge_dma_calls = stats.keygen_sponge_dma_calls + stats.encaps_sponge_dma_calls + stats.decaps_sponge_dma_calls;
-    uint32_t total_sponge_dma_fallbacks = stats.keygen_sponge_dma_fallbacks + stats.encaps_sponge_dma_fallbacks + stats.decaps_sponge_dma_fallbacks;
-    uint32_t total_sponge_dma_cycles = stats.keygen_sponge_dma_cycles + stats.encaps_sponge_dma_cycles + stats.decaps_sponge_dma_cycles;
-    uint32_t total_sponge_dma_hw_op_cycles = stats.keygen_sponge_dma_hw_op_cycles + stats.encaps_sponge_dma_hw_op_cycles + stats.decaps_sponge_dma_hw_op_cycles;
-    uint32_t total_sponge_dma_hw_core_cycles = stats.keygen_sponge_dma_hw_core_cycles + stats.encaps_sponge_dma_hw_core_cycles + stats.decaps_sponge_dma_hw_core_cycles;
-    uint32_t total_sponge_dma_hw_core_perms = stats.keygen_sponge_dma_hw_core_perms + stats.encaps_sponge_dma_hw_core_perms + stats.decaps_sponge_dma_hw_core_perms;
-    printf("Total KEM Operations Cycles: %lu\r\n", (unsigned long)total_cycles);
-    printf("Total Keccak Cycles: %lu\r\n", (unsigned long)total_keccak_cycles);
-    printf("Total Keccak Permutations: %lu\r\n", (unsigned long)total_keccak_calls);
-    printf("Total Raw DMA Calls/Fallbacks: %lu/%lu\r\n",
-           (unsigned long)total_raw_dma_calls,
-           (unsigned long)total_raw_dma_fallbacks);
-    printf("Total Raw DMA HW Op/Core Cycles: %lu/%lu\r\n",
-           (unsigned long)total_raw_dma_hw_op_cycles,
-           (unsigned long)total_raw_dma_hw_core_cycles);
-    printf("Total Sponge DMA Calls/Fallbacks/SW Cycles: %lu/%lu/%lu\r\n",
-           (unsigned long)total_sponge_dma_calls,
-           (unsigned long)total_sponge_dma_fallbacks,
-           (unsigned long)total_sponge_dma_cycles);
-    printf("Total Sponge DMA HW Op/Core Cycles/Perms: %lu/%lu/%lu\r\n",
-           (unsigned long)total_sponge_dma_hw_op_cycles,
-           (unsigned long)total_sponge_dma_hw_core_cycles,
-           (unsigned long)total_sponge_dma_hw_core_perms);
+    print_perf_summary("Average Performance Summary", "Average", &total_stats, HQC_PROFILE_REPS);
+    print_perf_summary("Cumulative Performance Summary", "Cumulative", &total_stats, 1);
+    printf("Total iterations: %lu\r\n", (unsigned long)HQC_PROFILE_REPS);
 
     printf("\r\n=== Profiling Complete ===\r\n\r\n");
+    printf("\r\n>>> SUCCESS: All profiling iterations completed! <<<\r\n");
 
-    if (HQC_PROFILE_STAGE == HQC_STAGE_ALL || HQC_PROFILE_STAGE == HQC_STAGE_DECAP_ONLY) {
-        if (memcmp(ss_encaps, ss_decaps, HQC_CRYPTO_BYTES) == 0) {
-            printf("\r\n>>> SUCCESS: Shared secrets perfectly match! <<<\r\n");
-        } else {
-            printf("\r\n>>> ERROR: Decapsulation failed! <<<\r\n");
-        }
-    }
-    
     return 0;
 }
